@@ -1,0 +1,5 @@
+.planning/
+.claude/
+/stegobmp
+/build/
+/tests/out/
