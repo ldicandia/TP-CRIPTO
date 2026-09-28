@@ -159,8 +159,8 @@ int main(int argc, char **argv)
 
     if (cli_parse(argc, argv, &opts, err, sizeof err) != 0)
         return fail(EXIT_USAGE, "%s", err);
-    if (steg_bits_per_carrier_byte(opts.steg) == 0)
-        return fail(EXIT_USAGE, "steganography method %s is not supported by this build (supported: LSB1, LSB4)",
+    if (!steg_method_supported(opts.steg))
+        return fail(EXIT_USAGE, "steganography method %s is not supported by this build (supported: LSB1, LSB4, LSBI)",
                     steg_method_name(opts.steg));
     if (opts.password != NULL)
         return fail(EXIT_USAGE,

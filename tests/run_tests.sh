@@ -167,13 +167,45 @@ case_vector_diff_region_LSB4() {
     [ "$mo" -le 89843 ] && [ $((mk & ~0x0F)) -eq 0 ] || fail_msg "unexpected diff region: $r"
 }
 
+case_vector_extract_LSBI() {
+    mkdir -p "$T/vxI"
+    $BIN -extract -p Ejemplo/ladoLSBI.bmp -out "$T/vxI/outI" -steg LSBI || fail_msg "extract exit $?" || return 1
+    [ -f "$T/vxI/outI.png" ] || fail_msg "outI.png missing" || return 1
+    [ "$(stat -c %s "$T/vxI/outI.png")" = "$PNG_SIZE" ] || fail_msg "wrong size" || return 1
+    [ "$(sha256sum "$T/vxI/outI.png" | cut -d' ' -f1)" = "$PNG_SHA256" ] || fail_msg "wrong sha256" || return 1
+    check_png "$T/vxI/outI.png" || return 1
+    no_tmp
+}
+
+case_vector_reembed_LSBI() {
+    mkdir -p "$T/vrI"
+    $BIN -extract -p Ejemplo/ladoLSBI.bmp -out "$T/vrI/h" -steg LSBI || fail_msg "extract failed" || return 1
+    $BIN -embed -in "$T/vrI/h.png" -p Ejemplo/lado.bmp -out "$T/vrI/s.bmp" -steg LSBI || fail_msg "embed failed" || return 1
+    cmp "$T/vrI/s.bmp" Ejemplo/ladoLSBI.bmp || fail_msg "re-embed differs from ladoLSBI.bmp" || return 1
+    cmp -n 54 "$T/vrI/s.bmp" Ejemplo/lado.bmp || fail_msg "header changed"
+}
+
+case_vector_diff_region_LSBI() {
+    mkdir -p "$T/vdI"
+    $BIN -extract -p Ejemplo/ladoLSBI.bmp -out "$T/vdI/h" -steg LSBI || return 1
+    $BIN -embed -in "$T/vdI/h.png" -p Ejemplo/lado.bmp -out "$T/vdI/s.bmp" -steg LSBI || return 1
+    local r
+    r=$(python3 tools/bmpdiff.py Ejemplo/lado.bmp "$T/vdI/s.bmp") || fail_msg "bmpdiff failed" || return 1
+    grep -xF 'summary changed_bytes=170852 changed_bits=170852 mask=0x01 first=78 last=538794' <<<"$r" >/dev/null || fail_msg "summary line differs: $r" || return 1
+    grep -xF 'channels B=85551 G=85301 R=0 PAD=0 HDR=0 TRAIL=0 OTHER=0' <<<"$r" >/dev/null || fail_msg "channels line differs: $r"
+}
+
 make_bmp() {
-    python3 - "$1" "$2" "$3" "$4" <<'PY'
+    python3 - "$1" "$2" "$3" "$4" "${5:-}" <<'PY'
 import sys, struct, random
 path, w, h, trailing = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
+fill = sys.argv[5]
 stride = (w * 3 + 3) & ~3
-rnd = random.Random(1234)
-pix = bytes(rnd.randrange(256) for _ in range(stride * h))
+if fill:
+    pix = bytes([int(fill, 16)]) * (stride * h)
+else:
+    rnd = random.Random(1234)
+    pix = bytes(rnd.randrange(256) for _ in range(stride * h))
 hdr = b'BM' + struct.pack('<IHHI', 54 + stride * h + trailing, 0, 0, 54)
 hdr += struct.pack('<IiiHHIIiiII', 40, w, h, 1, 24, 0, stride * h, 2835, 2835, 0, 0)
 open(path, 'wb').write(hdr + pix + b'\xab' * trailing)
@@ -216,7 +248,7 @@ case_padded_capacity() {
     local method=$1 d="$T/padcap-$1" n
     mkdir -p "$d"
     make_bmp "$d/c.bmp" 33 17 16
-    if [ "$method" = LSB1 ]; then n=203; else n=841; fi
+    case $method in LSB1) n=203 ;; LSB4) n=841 ;; LSBI) n=132 ;; esac
     head -c "$n" /dev/urandom > "$d/f.bin"
     roundtrip "$method" "$d/f.bin" "$d/c.bmp" "$d" .bin || return 1
     [ "$(stat -c %s "$d/s.bmp")" = "$(stat -c %s "$d/c.bmp")" ] || fail_msg "size changed" || return 1
@@ -398,7 +430,10 @@ run_case cap-over-LSB1 case_cap_over_LSB1
 run_case vector-extract-LSB4 case_vector_extract_LSB4
 run_case vector-reembed-LSB4 case_vector_reembed_LSB4
 run_case vector-diff-region-LSB4 case_vector_diff_region_LSB4
-for m in LSB1 LSB4; do
+run_case vector-extract-LSBI case_vector_extract_LSBI
+run_case vector-reembed-LSBI case_vector_reembed_LSBI
+run_case vector-diff-region-LSBI case_vector_diff_region_LSBI
+for m in LSB1 LSB4 LSBI; do
     for k in text binary multidot noext spaces; do
         eval "rt_${m}_${k}() { case_roundtrip $m $k; }"
         run_case "roundtrip-$m-$k" "rt_${m}_${k}"
@@ -437,7 +472,6 @@ ef cli-missing-out 1 'missing required parameter -out for -embed' "$O" -- -embed
 ef cli-missing-p-extract 1 'missing required parameter -p for -extract' "$X" -- -extract -out @D@/x -steg LSB1
 ef cli-missing-steg-extract 1 'missing required parameter -steg for -extract' "$X" -- -extract -p Ejemplo/ladoLSB1.bmp -out @D@/x
 ef cli-in-with-extract 1 '-in is not valid with -extract' "$X" -- -extract -in Ejemplo/README.txt -p Ejemplo/ladoLSB1.bmp -out @D@/x -steg LSB1
-ef cli-lsbi-unsupported 1 'steganography method LSBI is not supported by this build (supported: LSB1, LSB4)' "$O" -- $E -steg LSBI
 run_case cli-pass-refused-embed pr_embed
 run_case cli-pass-refused-extract pr_extract
 run_case cli-any-order-stego-only case_any_order_stego_only
@@ -479,6 +513,69 @@ run_case io-in-is-directory case_io_in_is_directory
 ef io-out-dir-missing 3 'cannot write' '@D@/no*' -- -embed -in Ejemplo/README.txt -p Ejemplo/lado.bmp -out @D@/no/such/dir/o.bmp -steg LSB1
 ef io-extract-out-dir-missing 3 'cannot write' '@D@/no*' -- -extract -p Ejemplo/ladoLSB1.bmp -out @D@/no/such/x -steg LSB1
 run_case inputs-unmodified case_inputs_unmodified
+
+# ---- LSBI cases ----
+case_cap_exact_LSBI() { case_cap_exact LSBI 76790; }
+case_cap_over_LSBI() {
+    head -c 76791 /dev/zero > "$CASE_DIR/f.bin"
+    expect_fail 2 "maximum capacity of 'Ejemplo/lado.bmp' with LSBI is 76799 bytes" '@D@/o*' -- -embed -in @D@/f.bin -p Ejemplo/lado.bmp -out @D@/o.bmp -steg LSBI
+}
+case_padded_over_LSBI() {
+    make_bmp "$CASE_DIR/c.bmp" 33 17 16
+    head -c 133 /dev/urandom > "$CASE_DIR/f.bin"
+    expect_fail 2 'with LSBI is 141 bytes' '@D@/o*' -- -embed -in @D@/f.bin -p @D@/c.bmp -out @D@/o.bmp -steg LSBI
+}
+case_lsbi_tiny_carrier() {
+    make_bmp "$CASE_DIR/c.bmp" 1 1 0
+    : > "$CASE_DIR/e.txt"
+    expect_fail 2 'with LSBI is 0 bytes' '@D@/o*' -- -embed -in @D@/e.txt -p @D@/c.bmp -out @D@/o.bmp -steg LSBI || return 1
+    expect_fail 2 'no hidden file found' '@D@/x*' -- -extract -p @D@/c.bmp -out @D@/x -steg LSBI
+}
+# lsbi_flag_case FILL LASTBYTES EXPECTED_FLAGS: 10x10 carrier of FILL bytes, 8-byte file
+lsbi_flag_case() {
+    local fill=$1 last=$2 want=$3 d=$CASE_DIR got
+    make_bmp "$d/c.bmp" 10 10 0 "$fill"
+    printf "\xff\xff\xff\xff\xff\xff\x$last\x00" > "$d/f.bin"
+    roundtrip LSBI "$d/f.bin" "$d/c.bmp" "$d" .bin || return 1
+    got=$(od -An -tx1 -j54 -N4 "$d/s.bmp" | tr -s ' ' | sed 's/^ //;s/ $//')
+    [ "$got" = "$want" ] || fail_msg "flag bytes '$got', expected '$want'"
+}
+case_lsbi_flag_tie() { lsbi_flag_case 00 07 '00 00 00 00'; }
+case_lsbi_flag_red() { lsbi_flag_case 04 0f '04 04 05 04'; }
+# differential_lsbi NAME-arg: CARRIER-maker, size
+case_differential_LSBI() {
+    local kind=$1 d=$CASE_DIR carrier n
+    case $kind in
+    lado) carrier=Ejemplo/lado.bmp; n=20000 ;;
+    padded) make_bmp "$d/c.bmp" 33 17 16; carrier=$d/c.bmp; n=132 ;;
+    oddrow) make_bmp "$d/c.bmp" 31 20 5; carrier=$d/c.bmp; n=150 ;;
+    esac
+    head -c "$n" /dev/urandom > "$d/f.bin"
+    $BIN -embed -in "$d/f.bin" -p "$carrier" -out "$d/s.bmp" -steg LSBI || fail_msg "embed failed" || return 1
+    python3 tools/lsbi.py embed-file "$carrier" "$d/f.bin" "$d/ref.bmp" || fail_msg "reference model failed" || return 1
+    cmp "$d/s.bmp" "$d/ref.bmp" || fail_msg "differs from tools/lsbi.py reference"
+}
+dl_lado() { case_differential_LSBI lado; }
+dl_padded() { case_differential_LSBI padded; }
+dl_oddrow() { case_differential_LSBI oddrow; }
+run_case cap-exact-LSBI case_cap_exact_LSBI
+run_case cap-over-LSBI case_cap_over_LSBI
+run_case edge-padded-over-LSBI case_padded_over_LSBI
+run_case edge-lsbi-tiny-carrier case_lsbi_tiny_carrier
+run_case edge-lsbi-flag-tie case_lsbi_flag_tie
+run_case edge-lsbi-flag-red case_lsbi_flag_red
+run_case differential-LSBI-lado dl_lado
+run_case differential-LSBI-padded dl_padded
+run_case differential-LSBI-oddrow dl_oddrow
+ef extract-clean-LSBI 2 'no hidden file found' "$X" -- -extract -p Ejemplo/lado.bmp -out @D@/x -steg LSBI
+ef extract-wrong-method-LSBI-on-LSB1 2 'no hidden file found' "$X" -- -extract -p Ejemplo/ladoLSB1.bmp -out @D@/x -steg LSBI
+ef extract-wrong-method-LSB1-on-LSBI 2 'no hidden file found' "$X" -- -extract -p Ejemplo/ladoLSBI.bmp -out @D@/x -steg LSB1
+ef extract-wrong-method-LSB4-on-LSBI 2 'no hidden file found' "$X" -- -extract -p Ejemplo/ladoLSBI.bmp -out @D@/x -steg LSB4
+pr_embed_lsbi() {
+    expect_fail 1 'encryption (-pass) is not supported by this build' '@D@/o*' -- -embed -in Ejemplo/README.txt -p Ejemplo/lado.bmp -out @D@/o.bmp -steg LSBI -pass secretpw || return 1
+    ! grep -q secretpw "$CASE_DIR"/ef*.out "$CASE_DIR"/ef*.err || fail_msg "password leaked"
+}
+run_case cli-pass-refused-LSBI pr_embed_lsbi
 
 if [ "$ran" -eq 0 ]; then
     echo "no test case matches filter '$FILTER'"

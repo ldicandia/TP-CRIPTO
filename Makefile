@@ -5,7 +5,7 @@ LDLIBS += -lcrypto
 SRCS := $(wildcard src/*.c)
 OBJS := $(SRCS:src/%.c=build/%.o)
 
-.PHONY: all test clean
+.PHONY: all test test-tools clean
 
 all: stegobmp
 
@@ -18,6 +18,9 @@ build/%.o: src/%.c $(wildcard src/*.h)
 
 test: stegobmp
 	bash tests/run_tests.sh
+
+test-tools:
+	bash tests/run_tool_tests.sh
 
 clean:
 	rm -rf build stegobmp tests/out

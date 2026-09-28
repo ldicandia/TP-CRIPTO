@@ -8,6 +8,7 @@ typedef enum { STEG_NONE = 0, STEG_LSB1, STEG_LSB4, STEG_LSBI } steg_method_t;
 
 const char *steg_method_name(steg_method_t m);
 unsigned steg_bits_per_carrier_byte(steg_method_t m);
+int steg_method_supported(steg_method_t m);
 uint64_t steg_capacity(steg_method_t m, size_t carrier_len);
 int steg_embed(steg_method_t m, uint8_t *carrier, size_t carrier_len,
                const uint8_t *payload, size_t payload_len);
@@ -17,6 +18,7 @@ typedef struct {
     const uint8_t *carrier;
     size_t carrier_len;
     size_t pos;
+    unsigned lsbi_flags; /* LSBI only: bit k = invert flag of pattern k (00,01,10,11) */
 } steg_reader_t;
 
 void steg_reader_init(steg_reader_t *r, steg_method_t m, const uint8_t *carrier,
