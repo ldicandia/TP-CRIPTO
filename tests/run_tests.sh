@@ -214,8 +214,9 @@ PY
 
 roundtrip() {
     local method=$1 infile=$2 carrier=$3 dir=$4 ext=$5
-    $BIN -embed -in "$infile" -p "$carrier" -out "$dir/s.bmp" -steg "$method" || fail_msg "embed failed" || return 1
-    $BIN -extract -p "$dir/s.bmp" -out "$dir/o" -steg "$method" || fail_msg "extract failed" || return 1
+    shift 5
+    $BIN -embed -in "$infile" -p "$carrier" -out "$dir/s.bmp" -steg "$method" "$@" || fail_msg "embed failed" || return 1
+    $BIN -extract -p "$dir/s.bmp" -out "$dir/o" -steg "$method" "$@" || fail_msg "extract failed" || return 1
     [ -f "$dir/o$ext" ] || fail_msg "missing $dir/o$ext" || return 1
     cmp "$infile" "$dir/o$ext" || fail_msg "content differs" || return 1
     cmp -n 54 "$dir/s.bmp" "$carrier" || fail_msg "header changed"
@@ -401,18 +402,6 @@ case_inputs_unmodified() {
     [ ! -e "$d/b.bmp" ] || fail_msg "failed embed created output"
 }
 
-case_pass_refused() {
-    local mode=$1
-    if [ "$mode" = embed ]; then
-        expect_fail 1 'encryption (-pass) is not supported by this build' '@D@/o*' -- -embed -in Ejemplo/README.txt -p Ejemplo/lado.bmp -out @D@/o.bmp -steg LSB1 -pass secretpw
-    else
-        expect_fail 1 'encryption (-pass) is not supported by this build' '@D@/x*' -- -extract -p Ejemplo/ladoLSB1.bmp -out @D@/x -steg LSB1 -pass secretpw
-    fi || return 1
-    ! grep -q secretpw "$CASE_DIR"/ef*.out "$CASE_DIR"/ef*.err || fail_msg "password leaked"
-}
-pr_embed() { case_pass_refused embed; }
-pr_extract() { case_pass_refused extract; }
-
 case_any_order_stego_only() {
     vector_png || return 1
     $BIN -steg LSB1 -a aes256 -m ofb -out "$CASE_DIR/o.bmp" -p Ejemplo/lado.bmp -in "$CASE_DIR/vec.png" -embed || fail_msg "embed failed" || return 1
@@ -433,6 +422,63 @@ run_case vector-diff-region-LSB4 case_vector_diff_region_LSB4
 run_case vector-extract-LSBI case_vector_extract_LSBI
 run_case vector-reembed-LSBI case_vector_reembed_LSBI
 run_case vector-diff-region-LSBI case_vector_diff_region_LSBI
+# ---- encrypted cátedra vectors: tag | file | method | alg | mode ----
+ENC_VECTORS=(
+    "LSB1aes128cbc|Ejemplo/ladoLSB1aes128cbc.bmp|LSB1|aes128|cbc"
+    "LSBIaes256ofb|Ejemplo/ladoLSBIaes256ofb.bmp|LSBI|aes256|ofb"
+    "LSBIdescfb|Ejemplo/ladoLSBIdescfb.bmp|LSBI|3des|cfb"
+)
+
+case_enc_vector_extract() {
+    local file=$1 method=$2 alg=$3 mode=$4 d=$CASE_DIR
+    $BIN -extract -p "$file" -out "$d/h" -steg "$method" -a "$alg" -m "$mode" -pass margarita >"$d/run.log" 2>&1 || fail_msg "extract exit $?" || return 1
+    [ -f "$d/h.png" ] || fail_msg "h.png missing" || return 1
+    [ "$(stat -c %s "$d/h.png")" = "$PNG_SIZE" ] || fail_msg "wrong size" || return 1
+    [ "$(sha256sum "$d/h.png" | cut -d" " -f1)" = "$PNG_SHA256" ] || fail_msg "wrong sha256" || return 1
+    check_png "$d/h.png" || return 1
+    grep -qF "(decrypted with $alg-$mode)" "$d/run.log" || fail_msg "success line lacks (decrypted with $alg-$mode)" || return 1
+    ! grep -q margarita "$d/run.log" || fail_msg "password leaked into output" || return 1
+    no_tmp
+}
+
+case_enc_vector_reembed() {
+    local file=$1 method=$2 alg=$3 mode=$4 d=$CASE_DIR
+    $BIN -extract -p "$file" -out "$d/h" -steg "$method" -a "$alg" -m "$mode" -pass margarita >/dev/null || fail_msg "extract failed" || return 1
+    $BIN -embed -in "$d/h.png" -p Ejemplo/lado.bmp -out "$d/s.bmp" -steg "$method" -a "$alg" -m "$mode" -pass margarita >/dev/null || fail_msg "embed failed" || return 1
+    cmp "$d/s.bmp" "$file" || fail_msg "re-embed differs from $file" || return 1
+    cmp -n 54 "$d/s.bmp" Ejemplo/lado.bmp || fail_msg "header changed"
+}
+
+for row in "${ENC_VECTORS[@]}"; do
+    IFS="|" read -r tag file method alg mode <<<"$row"
+    eval "vxe_$tag() { case_enc_vector_extract $file $method $alg $mode; }"
+    eval "vre_$tag() { case_enc_vector_reembed $file $method $alg $mode; }"
+    run_case "vector-extract-$tag" "vxe_$tag"
+    run_case "vector-reembed-$tag" "vre_$tag"
+done
+
+# ---- differential: stegobmp vs tools/cryptoref.py (hashlib PBKDF2 + openssl enc) ----
+case_differential_crypto() {
+    local alg=$1 mode=$2 d=$CASE_DIR want
+    case $mode in
+    cfb | ofb) want=1009 ;;
+    *) case $alg in 3des) want=1016 ;; *) want=1024 ;; esac ;;
+    esac
+    head -c 1000 /dev/urandom > "$d/f.bin"
+    $BIN -embed -in "$d/f.bin" -p Ejemplo/lado.bmp -out "$d/s.bmp" -steg LSB1 -a "$alg" -m "$mode" -pass 'clave de prueba' >/dev/null || fail_msg "embed failed" || return 1
+    python3 tools/cryptoref.py open "$d/s.bmp" LSB1 "$alg" "$mode" 'clave de prueba' "$d/ref" > "$d/ref.out" || fail_msg "oracle failed: $(cat "$d/ref.out")" || return 1
+    grep -qxF "cipher_size=$want size=1000 ext=.bin" "$d/ref.out" || fail_msg "oracle says: $(cat "$d/ref.out"), expected cipher_size=$want" || return 1
+    cmp "$d/f.bin" "$d/ref.bin" || fail_msg "oracle output differs from the hidden file" || return 1
+    $BIN -extract -p "$d/s.bmp" -out "$d/o" -steg LSB1 -a "$alg" -m "$mode" -pass 'clave de prueba' >/dev/null || fail_msg "extract failed" || return 1
+    cmp "$d/f.bin" "$d/o.bin" || fail_msg "stegobmp extract differs from the hidden file"
+}
+for alg in aes128 aes192 aes256 3des; do
+    for mode in ecb cfb ofb cbc; do
+        eval "dc_${alg}_${mode}() { case_differential_crypto $alg $mode; }"
+        run_case "differential-crypto-$alg-$mode" "dc_${alg}_${mode}"
+    done
+done
+
 for m in LSB1 LSB4 LSBI; do
     for k in text binary multidot noext spaces; do
         eval "rt_${m}_${k}() { case_roundtrip $m $k; }"
@@ -472,8 +518,6 @@ ef cli-missing-out 1 'missing required parameter -out for -embed' "$O" -- -embed
 ef cli-missing-p-extract 1 'missing required parameter -p for -extract' "$X" -- -extract -out @D@/x -steg LSB1
 ef cli-missing-steg-extract 1 'missing required parameter -steg for -extract' "$X" -- -extract -p Ejemplo/ladoLSB1.bmp -out @D@/x
 ef cli-in-with-extract 1 '-in is not valid with -extract' "$X" -- -extract -in Ejemplo/README.txt -p Ejemplo/ladoLSB1.bmp -out @D@/x -steg LSB1
-run_case cli-pass-refused-embed pr_embed
-run_case cli-pass-refused-extract pr_extract
 run_case cli-any-order-stego-only case_any_order_stego_only
 run_case cli-extract-mode-only-stego case_extract_mode_only_stego
 
@@ -571,11 +615,299 @@ ef extract-clean-LSBI 2 'no hidden file found' "$X" -- -extract -p Ejemplo/lado.
 ef extract-wrong-method-LSBI-on-LSB1 2 'no hidden file found' "$X" -- -extract -p Ejemplo/ladoLSB1.bmp -out @D@/x -steg LSBI
 ef extract-wrong-method-LSB1-on-LSBI 2 'no hidden file found' "$X" -- -extract -p Ejemplo/ladoLSBI.bmp -out @D@/x -steg LSB1
 ef extract-wrong-method-LSB4-on-LSBI 2 'no hidden file found' "$X" -- -extract -p Ejemplo/ladoLSBI.bmp -out @D@/x -steg LSB4
-pr_embed_lsbi() {
-    expect_fail 1 'encryption (-pass) is not supported by this build' '@D@/o*' -- -embed -in Ejemplo/README.txt -p Ejemplo/lado.bmp -out @D@/o.bmp -steg LSBI -pass secretpw || return 1
-    ! grep -q secretpw "$CASE_DIR"/ef*.out "$CASE_DIR"/ef*.err || fail_msg "password leaked"
+# ---- CLI-03 defaults, encryption edge cases ----
+case_default_embed() {
+    # case_default_embed INFILE EXPECT_LINE -- SHORT_ARGS... -- LONG_ARGS...  (short and long must agree)
+    local infile=$1 want=$2 d=$CASE_DIR
+    shift 3
+    local short=() long=()
+    while [ "$1" != -- ]; do short+=("$1"); shift; done
+    shift
+    long=("$@")
+    $BIN -embed -in "$infile" -p Ejemplo/lado.bmp -out "$d/short.bmp" -steg LSB1 "${short[@]}" >"$d/short.out" 2>&1 || fail_msg "short embed failed" || return 1
+    $BIN -embed -in "$infile" -p Ejemplo/lado.bmp -out "$d/long.bmp" -steg LSB1 "${long[@]}" >"$d/long.out" 2>&1 || fail_msg "explicit embed failed" || return 1
+    cmp "$d/short.bmp" "$d/long.bmp" || fail_msg "defaults differ from the explicit form" || return 1
+    grep -qF "$want" "$d/short.out" || fail_msg "stdout lacks '$want': $(cat "$d/short.out")"
 }
-run_case cli-pass-refused-LSBI pr_embed_lsbi
+case_default_pass_only_embed() {
+    vector_png || return 1
+    case_default_embed "$CASE_DIR/vec.png" "with aes128-cbc encryption" -- -pass margarita -- -a aes128 -m cbc -pass margarita || return 1
+    cmp "$CASE_DIR/short.bmp" Ejemplo/ladoLSB1aes128cbc.bmp || fail_msg "differs from Ejemplo/ladoLSB1aes128cbc.bmp"
+}
+case_default_a_only_embed() { case_default_embed Ejemplo/README.txt "with aes256-cbc encryption" -- -a aes256 -pass pw1 -- -a aes256 -m cbc -pass pw1; }
+case_default_m_only_embed() { case_default_embed Ejemplo/README.txt "with aes128-ofb encryption" -- -m ofb -pass pw1 -- -a aes128 -m ofb -pass pw1; }
+
+# default_extract ARGS...: recover the PNG from the aes128-cbc vector with a partial spec
+default_extract() {
+    local d=$CASE_DIR
+    $BIN -extract -p Ejemplo/ladoLSB1aes128cbc.bmp -out "$d/h" -steg LSB1 "$@" >"$d/run.log" 2>&1 || fail_msg "extract failed: $(cat "$d/run.log")" || return 1
+    [ "$(sha256sum "$d/h.png" | cut -d' ' -f1)" = "$PNG_SHA256" ] || fail_msg "wrong sha256" || return 1
+    grep -qF "(decrypted with aes128-cbc)" "$d/run.log" || fail_msg "stdout lacks (decrypted with aes128-cbc)"
+}
+case_default_pass_only_extract() { default_extract -pass margarita; }
+case_default_a_only_extract() { default_extract -a aes128 -pass margarita; }
+case_default_m_only_extract() { default_extract -m cbc -pass margarita; }
+
+case_no_pass_note_embed() {
+    local d=$CASE_DIR
+    vector_png || return 1
+    $BIN -embed -in "$d/vec.png" -p Ejemplo/lado.bmp -out "$d/o.bmp" -steg LSB1 -a aes256 -m ofb >"$d/out" 2>"$d/err" || fail_msg "embed exit $?" || return 1
+    cmp "$d/o.bmp" Ejemplo/ladoLSB1.bmp || fail_msg "differs from Ejemplo/ladoLSB1.bmp" || return 1
+    grep -qxF 'stegobmp: note: -a/-m ignored because no -pass was given (no encryption)' "$d/err" || fail_msg "note missing: $(cat "$d/err")"
+}
+case_no_pass_note_extract() {
+    local d=$CASE_DIR
+    $BIN -extract -p Ejemplo/ladoLSB1.bmp -out "$d/x" -steg LSB1 -a 3des >"$d/out" 2>"$d/err" || fail_msg "extract exit $?" || return 1
+    [ "$(sha256sum "$d/x.png" | cut -d' ' -f1)" = "$PNG_SHA256" ] || fail_msg "wrong sha256" || return 1
+    grep -qxF 'stegobmp: note: -a/-m ignored because no -pass was given (no encryption)' "$d/err" || fail_msg "note missing: $(cat "$d/err")"
+}
+
+case_encrypt_deterministic() {
+    local d=$CASE_DIR
+    $BIN -embed -in Ejemplo/README.txt -p Ejemplo/lado.bmp -out "$d/a.bmp" -steg LSBI -a 3des -m ofb -pass pw2 >/dev/null || return 1
+    $BIN -embed -in Ejemplo/README.txt -p Ejemplo/lado.bmp -out "$d/b.bmp" -steg LSBI -a 3des -m ofb -pass pw2 >/dev/null || return 1
+    cmp "$d/a.bmp" "$d/b.bmp" || fail_msg "two identical encrypted embeds differ"
+}
+
+case_parallel_embed_encrypted() {
+    local d=$CASE_DIR pids=() p
+    vector_png || return 1
+    for _ in 1 2 3 4; do
+        $BIN -embed -in "$d/vec.png" -p Ejemplo/lado.bmp -out "$d/stego.bmp" -steg LSB1 -pass margarita >/dev/null 2>&1 &
+        pids+=($!)
+    done
+    for p in "${pids[@]}"; do
+        wait "$p" || fail_msg "a parallel embed failed" || return 1
+    done
+    cmp "$d/stego.bmp" Ejemplo/ladoLSB1aes128cbc.bmp || fail_msg "differs from reference" || return 1
+    no_tmp
+}
+
+case_password_utf8() {
+    local d=$CASE_DIR pw='contraseña con espacios'
+    head -c 3000 /dev/urandom > "$d/f.bin"
+    roundtrip LSB4 "$d/f.bin" Ejemplo/lado.bmp "$d" .bin -a aes192 -m cfb -pass "$pw" || return 1
+    python3 tools/cryptoref.py open "$d/s.bmp" LSB4 aes192 cfb "$pw" "$d/ref" >"$d/ref.out" || fail_msg "oracle failed: $(cat "$d/ref.out")" || return 1
+    cmp "$d/f.bin" "$d/ref.bin" || fail_msg "oracle output differs"
+}
+
+run_case cli-default-pass-only-embed case_default_pass_only_embed
+run_case cli-default-a-only-embed case_default_a_only_embed
+run_case cli-default-m-only-embed case_default_m_only_embed
+run_case cli-default-pass-only-extract case_default_pass_only_extract
+run_case cli-default-a-only-extract case_default_a_only_extract
+run_case cli-default-m-only-extract case_default_m_only_extract
+ef cli-default-a-implies-cbc 2 'cannot decrypt the hidden data with aes256-cbc' '@D@/x*' -- -extract -p Ejemplo/ladoLSBIaes256ofb.bmp -out @D@/x -steg LSBI -a aes256 -pass margarita
+ef cli-default-m-implies-aes128 2 'cannot decrypt the hidden data with aes128-ofb' '@D@/x*' -- -extract -p Ejemplo/ladoLSBIaes256ofb.bmp -out @D@/x -steg LSBI -m ofb -pass margarita
+run_case cli-no-pass-note-embed case_no_pass_note_embed
+run_case cli-no-pass-note-extract case_no_pass_note_extract
+run_case edge-encrypt-deterministic case_encrypt_deterministic
+run_case edge-parallel-embed-encrypted case_parallel_embed_encrypted
+run_case edge-password-utf8 case_password_utf8
+
+# ---- CRYP-04: decryption failures, corrupt/hostile ciphertext, encrypted capacity ----
+# df NAME PASSWORD CODE PATTERN -- ARGS...: expect_fail, then the password must not appear in stdout/stderr
+df_runner() {
+    local pw=${DF[0]}
+    EF_N=0
+    expect_fail "${DF[@]:1}" || return 1
+    if grep -qF -- "$pw" "$CASE_DIR"/ef*.out "$CASE_DIR"/ef*.err; then fail_msg "password '$pw' leaked into stdout/stderr" || return 1; fi
+}
+df() {
+    local name=$1
+    shift
+    DF=("$1" "$2" "$3" '@D@/x*' "${@:4}")
+    run_case "$name" df_runner
+}
+
+# flip_lsb FILE OFFSET: invert bit 0 of the byte at OFFSET
+flip_lsb() {
+    local b
+    b=$(od -An -tu1 -j"$2" -N1 "$1" | tr -d ' ')
+    patch_bytes "$1" "$2" "$(printf '%02x' $((b ^ 1)))"
+}
+
+# set_lsb1_size FILE VALUE: write VALUE (32 bits, MSB first) into the LSBs of file bytes 54..85
+set_lsb1_size() {
+    local f=$1 v=$2 i b bit
+    for i in $(seq 0 31); do
+        b=$(od -An -tu1 -j$((54 + i)) -N1 "$f" | tr -d ' ')
+        bit=$(((v >> (31 - i)) & 1))
+        patch_bytes "$f" $((54 + i)) "$(printf '%02x' $(((b & 254) | bit)))"
+    done
+}
+
+V_CBC=Ejemplo/ladoLSB1aes128cbc.bmp
+V_OFB=Ejemplo/ladoLSBIaes256ofb.bmp
+V_CFB=Ejemplo/ladoLSBIdescfb.bmp
+df decrypt-fail-wrong-password-LSB1aes128cbc naranja 2 "cannot decrypt the hidden data with aes128-cbc (wrong password, algorithm or mode, or '$V_CBC' holds no encrypted payload)" -- -extract -p $V_CBC -out @D@/x -steg LSB1 -a aes128 -m cbc -pass naranja
+df decrypt-fail-wrong-password-LSBIaes256ofb naranja 2 "cannot decrypt the hidden data with aes256-ofb (wrong password" -- -extract -p $V_OFB -out @D@/x -steg LSBI -a aes256 -m ofb -pass naranja
+df decrypt-fail-wrong-password-LSBIdescfb naranja 2 "cannot decrypt the hidden data with 3des-cfb (wrong password" -- -extract -p $V_CFB -out @D@/x -steg LSBI -a 3des -m cfb -pass naranja
+df decrypt-fail-password-case Margarita 2 "with aes128-cbc (wrong password" -- -extract -p $V_CBC -out @D@/x -steg LSB1 -a aes128 -m cbc -pass Margarita
+df decrypt-fail-wrong-alg margarita 2 "with aes192-cbc (wrong password" -- -extract -p $V_CBC -out @D@/x -steg LSB1 -a aes192 -m cbc -pass margarita
+df decrypt-fail-wrong-mode margarita 2 "with aes256-cfb (wrong password" -- -extract -p $V_OFB -out @D@/x -steg LSBI -a aes256 -m cfb -pass margarita
+case_decrypt_ecb_wrong_password() {
+    $BIN -embed -in Ejemplo/README.txt -p Ejemplo/lado.bmp -out "$CASE_DIR/s.bmp" -steg LSB1 -a 3des -m ecb -pass uno >/dev/null || fail_msg "embed failed" || return 1
+    df_runner
+}
+DF=(dos 2 "with 3des-ecb (wrong password" '@D@/x*' -- -extract -p @D@/s.bmp -out @D@/x -steg LSB1 -a 3des -m ecb -pass dos)
+run_case decrypt-fail-ecb-wrong-password case_decrypt_ecb_wrong_password
+df decrypt-fail-pass-on-plain-LSB1 margarita 2 "with aes128-cbc (wrong password" -- -extract -p Ejemplo/ladoLSB1.bmp -out @D@/x -steg LSB1 -pass margarita
+df decrypt-fail-pass-on-plain-LSB4-ofb margarita 2 "with aes128-ofb (wrong password" -- -extract -p Ejemplo/ladoLSB4.bmp -out @D@/x -steg LSB4 -m ofb -pass margarita
+df decrypt-fail-pass-on-plain-LSBI-3des-cfb margarita 2 "with 3des-cfb (wrong password" -- -extract -p Ejemplo/ladoLSBI.bmp -out @D@/x -steg LSBI -a 3des -m cfb -pass margarita
+df decrypt-fail-pass-on-clean-LSB1 margarita 2 "no hidden file found" -- -extract -p Ejemplo/lado.bmp -out @D@/x -steg LSB1 -pass margarita
+df decrypt-fail-pass-on-clean-LSBI margarita 2 "no hidden file found" -- -extract -p Ejemplo/lado.bmp -out @D@/x -steg LSBI -pass margarita
+
+case_decrypt_corrupt_cbc_padding() {
+    cp $V_CBC "$CASE_DIR/c.bmp"
+    flip_lsb "$CASE_DIR/c.bmp" 359125
+    expect_fail 2 "with aes128-cbc (wrong password" '@D@/x*' -- -extract -p @D@/c.bmp -out @D@/x -steg LSB1 -a aes128 -m cbc -pass margarita || return 1
+    expect_fail 2 "bad padding" '@D@/x*' -- -extract -p @D@/c.bmp -out @D@/x -steg LSB1 -a aes128 -m cbc -pass margarita
+}
+case_decrypt_corrupt_ofb_size() {
+    $BIN -embed -in Ejemplo/README.txt -p Ejemplo/lado.bmp -out "$CASE_DIR/c.bmp" -steg LSB1 -a aes128 -m ofb -pass margarita >/dev/null || fail_msg "embed failed" || return 1
+    flip_lsb "$CASE_DIR/c.bmp" 86
+    expect_fail 2 "the decrypted data is not a valid hidden file" '@D@/x*' -- -extract -p @D@/c.bmp -out @D@/x -steg LSB1 -a aes128 -m ofb -pass margarita
+}
+case_decrypt_hostile() {
+    local v=$1 alg_pat=$2 pat2=$3 pat1=$4
+    cp $V_CBC "$CASE_DIR/c.bmp"
+    set_lsb1_size "$CASE_DIR/c.bmp" "$v"
+    expect_fail 2 "$pat1" '@D@/x*' -- -extract -p @D@/c.bmp -out @D@/x -steg LSB1 -a aes128 -m cbc -pass margarita || return 1
+    expect_fail 2 "$pat2" '@D@/x*' -- -extract -p @D@/c.bmp -out @D@/x -steg LSB1 -a aes128 -m cbc -pass margarita
+}
+dh_zero() { case_decrypt_hostile 0 x "ciphertext size field is 0" "no hidden file found"; }
+dh_max() { case_decrypt_hostile 4294967295 x "at most" "no hidden file found"; }
+dh_notblock() { case_decrypt_hostile 44895 x "not a multiple of the 16-byte block" "aes128-cbc"; }
+run_case decrypt-corrupt-cbc-padding case_decrypt_corrupt_cbc_padding
+run_case decrypt-corrupt-ofb-size case_decrypt_corrupt_ofb_size
+run_case decrypt-hostile-size-zero dh_zero
+run_case decrypt-hostile-size-max dh_max
+run_case decrypt-hostile-size-not-block dh_notblock
+
+# cap-enc: METHOD ALG MODE MAXFIT NEED_OVER CAPACITY
+case_cap_enc_exact() { head -c "$5" /dev/zero > "$CASE_DIR/f.bin"; roundtrip "$1" "$CASE_DIR/f.bin" Ejemplo/lado.bmp "$CASE_DIR" .bin -a "$2" -m "$3" -pass pw; }
+case_cap_enc_over() {
+    head -c "$(($5 + 1))" /dev/zero > "$CASE_DIR/f.bin"
+    expect_fail 2 "the payload needs $6 bytes" '@D@/o*' -- -embed -in @D@/f.bin -p Ejemplo/lado.bmp -out @D@/o.bmp -steg "$1" -a "$2" -m "$3" -pass pw || return 1
+    expect_fail 2 "maximum capacity of 'Ejemplo/lado.bmp' with $1 is $7 bytes" '@D@/o*' -- -embed -in @D@/f.bin -p Ejemplo/lado.bmp -out @D@/o.bmp -steg "$1" -a "$2" -m "$3" -pass pw
+}
+CAP_ENC=(
+    "LSB1 aes128 cbc 115174 115204 115200"
+    "LSB1 aes128 ofb 115187 115201 115200"
+    "LSB1 3des cbc 115182 115204 115200"
+    "LSB4 aes256 cbc 460774 460804 460800"
+    "LSBI aes128 cbc 76774 76804 76799"
+)
+for row in "${CAP_ENC[@]}"; do
+    read -r cm ca cmo cfit cneed ccap <<<"$row"
+    eval "cee_${cm}_${ca}_${cmo}() { case_cap_enc_exact $cm $ca $cmo x $cfit; }"
+    eval "ceo_${cm}_${ca}_${cmo}() { case_cap_enc_over $cm $ca $cmo x $cfit $cneed $ccap; }"
+    run_case "cap-enc-exact-$cm-$ca-$cmo" "cee_${cm}_${ca}_${cmo}"
+    run_case "cap-enc-over-$cm-$ca-$cmo" "ceo_${cm}_${ca}_${cmo}"
+done
+case_cap_enc_sparse() {
+    local d rc
+    d=$(mktemp -d)
+    truncate -s 5G "$d/huge.bin"
+    timeout 5 "$BIN" -embed -in "$d/huge.bin" -p Ejemplo/lado.bmp -out "$CASE_DIR/o.bmp" -steg LSB4 -pass pw >/dev/null 2>"$CASE_DIR/err"
+    rc=$?
+    rm -rf "$d"
+    [ "$rc" = 2 ] || fail_msg "expected exit 2, got $rc" || return 1
+    grep -qF "maximum capacity of 'Ejemplo/lado.bmp' with LSB4 is 460800 bytes" "$CASE_DIR/err" || fail_msg "capacity message missing" || return 1
+    [ ! -e "$CASE_DIR/o.bmp" ] || fail_msg "output created"
+}
+run_case cap-enc-sparse-5GiB case_cap_enc_sparse
+
+# ---- TEST-02: method x (none + algorithm x mode) matrix, registered after everything else ----
+case_matrix() {
+    local m=$1
+    shift
+    head -c 1000 /dev/urandom > "$CASE_DIR/m.dat"
+    roundtrip "$m" "$CASE_DIR/m.dat" Ejemplo/lado.bmp "$CASE_DIR" .dat "$@"
+}
+for m in LSB1 LSB4 LSBI; do
+    eval "mx_${m}_none() { case_matrix $m; }"
+    run_case "matrix-$m-none" "mx_${m}_none"
+    for alg in aes128 aes192 aes256 3des; do
+        for mode in ecb cfb ofb cbc; do
+            eval "mx_${m}_${alg}_${mode}() { case_matrix $m -a $alg -m $mode -pass 'matriz 2026'; }"
+            run_case "matrix-$m-$alg-$mode" "mx_${m}_${alg}_${mode}"
+        done
+    done
+done
+
+# oracle_cipher_size STEGO ALG MODE PW PREFIX WANT
+oracle_cipher_size() {
+    python3 tools/cryptoref.py open "$1" LSB1 "$2" "$3" "$4" "$5" > "$5.out" || fail_msg "oracle failed: $(cat "$5.out")" || return 1
+    grep -q "^cipher_size=$6 " "$5.out" || fail_msg "oracle says: $(cat "$5.out"), expected cipher_size=$6"
+}
+case_empty_enc() {
+    local alg=$1 mode=$2 d=$CASE_DIR want
+    case $mode in cfb | ofb) want=9 ;; *) want=16 ;; esac
+    : > "$d/e.txt"
+    roundtrip LSB1 "$d/e.txt" Ejemplo/lado.bmp "$d" .txt -a "$alg" -m "$mode" -pass pw || return 1
+    [ "$(stat -c %s "$d/o.txt")" = 0 ] || fail_msg "not empty" || return 1
+    oracle_cipher_size "$d/s.bmp" "$alg" "$mode" pw "$d/ref" "$want"
+}
+case_pkcs5_fullblock() {
+    local alg=$1 mode=$2 d=$CASE_DIR want
+    case $alg in 3des) want=40 ;; *) want=48 ;; esac
+    head -c 23 /dev/urandom > "$d/f.bin"
+    roundtrip LSB1 "$d/f.bin" Ejemplo/lado.bmp "$d" .bin -a "$alg" -m "$mode" -pass pw || return 1
+    oracle_cipher_size "$d/s.bmp" "$alg" "$mode" pw "$d/ref" "$want"
+}
+for alg in aes128 aes192 aes256 3des; do
+    for mode in ecb cfb ofb cbc; do
+        eval "ee_${alg}_${mode}() { case_empty_enc $alg $mode; }"
+        run_case "edge-empty-enc-$alg-$mode" "ee_${alg}_${mode}"
+    done
+done
+for alg in aes128 aes192 aes256 3des; do
+    for mode in ecb cbc; do
+        eval "pf_${alg}_${mode}() { case_pkcs5_fullblock $alg $mode; }"
+        run_case "edge-pkcs5-fullblock-$alg-$mode" "pf_${alg}_${mode}"
+    done
+done
+
+case_readme_examples() {
+    local out
+    out=$(bash tests/check_readme.sh 2>&1) || { echo "$out" | tail -n 5; fail_msg "check_readme.sh failed"; }
+    echo "$out" | grep -q '^PASS check_readme:' || fail_msg "no PASS check_readme line"
+}
+run_case readme-examples case_readme_examples
+
+# Every OpenSSL identifier must exist in OpenSSL 1.0.2, 1.1.1 and 3.x (pampero's version is unknown).
+OPENSSL_ALLOWLIST="EVP_CIPHER EVP_CIPHER_CTX EVP_CIPHER_CTX_new EVP_CIPHER_CTX_free
+EVP_CIPHER_CTX_set_padding EVP_CipherInit_ex EVP_CipherUpdate EVP_CipherFinal_ex
+EVP_EncryptInit_ex EVP_EncryptUpdate EVP_EncryptFinal_ex EVP_DecryptInit_ex EVP_DecryptUpdate
+EVP_DecryptFinal_ex EVP_sha256 EVP_aes_128_ecb EVP_aes_128_cbc EVP_aes_128_cfb8 EVP_aes_128_ofb
+EVP_aes_192_ecb EVP_aes_192_cbc EVP_aes_192_cfb8 EVP_aes_192_ofb EVP_aes_256_ecb EVP_aes_256_cbc
+EVP_aes_256_cfb8 EVP_aes_256_ofb EVP_des_ede3 EVP_des_ede3_ecb EVP_des_ede3_cbc EVP_des_ede3_cfb8
+EVP_des_ede3_ofb EVP_MAX_BLOCK_LENGTH EVP_MAX_KEY_LENGTH EVP_MAX_IV_LENGTH PKCS5_PBKDF2_HMAC
+OPENSSL_cleanse ERR_clear_error"
+
+case_openssl_allowlist() {
+    local id bad="" hdr ldl
+    for id in $(grep -ohE '\b(EVP|PKCS5|OPENSSL|ERR|OSSL)_[A-Za-z0-9_]+' src/*.c src/*.h | sort -u); do
+        case " $(echo $OPENSSL_ALLOWLIST) " in
+            *" $id "*) ;;
+            *) bad="$bad $id" ;;
+        esac
+    done
+    [ -z "$bad" ] || fail_msg "OpenSSL identifiers outside the 1.0.2/1.1.1/3.x allowlist:$bad"
+    for hdr in $(grep -ohE '#include <openssl/[a-z_]+\.h>' src/*.c src/*.h | sort -u | sed 's/#include <\(.*\)>/\1/'); do
+        case "$hdr" in
+            openssl/evp.h|openssl/crypto.h|openssl/err.h) ;;
+            *) fail_msg "OpenSSL header not allowed: $hdr" ;;
+        esac
+    done
+    ldl=$(grep -E '^LDLIBS' Makefile)
+    case "$ldl" in *-lcrypto*) ;; *) fail_msg "Makefile LDLIBS lacks -lcrypto" ;; esac
+    [ -z "$(echo "$ldl" | grep -oE -- '-l[a-z0-9_]+' | grep -vx -- '-lcrypto')" ] \
+        || fail_msg "Makefile links a library other than -lcrypto: $ldl"
+}
+run_case build-openssl-api-allowlist case_openssl_allowlist
 
 if [ "$ran" -eq 0 ]; then
     echo "no test case matches filter '$FILTER'"

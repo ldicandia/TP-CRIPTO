@@ -126,6 +126,14 @@ int cli_parse(int argc, char **argv, cli_options_t *opts, char *err, size_t err_
             return -1;
         }
     }
+    /* Spec page 3: -pass alone means aes128/cbc, -a alone means cbc, -m alone means aes128.
+     * Without -pass, -a/-m stay as parsed: main only uses them to print the no-encryption note. */
+    if (opts->password) {
+        if (opts->alg == CIPHER_NONE)
+            opts->alg = CIPHER_AES128;
+        if (opts->cipher_mode == CIPHER_MODE_NONE)
+            opts->cipher_mode = CIPHER_MODE_CBC;
+    }
     return 0;
 }
 

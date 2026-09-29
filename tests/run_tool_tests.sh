@@ -503,6 +503,64 @@ run_case sig-all-weak case_sig_all_weak
 run_case sig-dump case_sig_dump
 run_case sig-hostile case_sig_hostile
 
+# ---------------------------------------------------------------- cryptoref
+
+# kdf_case ALG KEYHEX IVHEX [readme]: exact key=/iv= lines; "readme" also requires both in README.txt
+kdf_case() {
+    local alg=$1 key=$2 iv=$3 readme=${4:-} o="$CASE_DIR/out"
+    python3 tools/cryptoref.py kdf "$alg" margarita > "$o" || fail_msg "exit $?" || return 1
+    [ "$(cat "$o")" = "key=$key
+iv=$iv" ] || fail_msg "unexpected kdf output: $(tr '\n' ' ' < "$o")" || return 1
+    if [ -n "$readme" ]; then
+        grep -qF "$key" Ejemplo/README.txt || fail_msg "key not in README.txt" || return 1
+        grep -qF "$iv" Ejemplo/README.txt || fail_msg "iv not in README.txt" || return 1
+    fi
+}
+case_cryptoref_kdf_aes128() {
+    kdf_case aes128 03db0a157acfe8de523760aa731d8122 b25f8d99f3173ec0b52849f459a4c20d || return 1
+    # README lists the key verbatim but a different IV (erratum, see docs/CRYPTO-NOTES.md K3)
+    grep -qF 03db0a157acfe8de523760aa731d8122 Ejemplo/README.txt || fail_msg "aes128 key not in README.txt"
+}
+case_cryptoref_kdf_aes192() {
+    kdf_case aes192 03db0a157acfe8de523760aa731d8122b25f8d99f3173ec0 b52849f459a4c20d212420edc583a686
+}
+case_cryptoref_kdf_aes256_readme() {
+    kdf_case aes256 03db0a157acfe8de523760aa731d8122b25f8d99f3173ec0b52849f459a4c20d 212420edc583a686a94d19a3497363a2 readme
+}
+case_cryptoref_kdf_3des_readme() {
+    kdf_case 3des 03db0a157acfe8de523760aa731d8122b25f8d99f3173ec0 b52849f459a4c20d readme
+}
+
+# open_case FILE METHOD ALG MODE CIPHER_SIZE
+open_case() {
+    local d=$CASE_DIR
+    python3 tools/cryptoref.py open "$1" "$2" "$3" "$4" margarita "$d/d" > "$d/out" || fail_msg "exit $?" || return 1
+    has_line "$d/out" "cipher_size=$5 size=44886 ext=.png" || return 1
+    [ "$(sha256sum "$d/d.png" | cut -d' ' -f1)" = "$PNG_SHA256" ] || fail_msg "wrong sha256"
+}
+case_cryptoref_open_LSB1aes128cbc() { open_case Ejemplo/ladoLSB1aes128cbc.bmp LSB1 aes128 cbc 44896; }
+case_cryptoref_open_LSBIaes256ofb() { open_case Ejemplo/ladoLSBIaes256ofb.bmp LSBI aes256 ofb 44895; }
+case_cryptoref_open_LSBIdescfb() { open_case Ejemplo/ladoLSBIdescfb.bmp LSBI 3des cfb 44895; }
+
+case_cryptoref_readme_aes128_iv_erratum() {
+    local d=$CASE_DIR rc
+    python3 tools/cryptoref.py open Ejemplo/ladoLSB1aes128cbc.bmp LSB1 aes128 cbc margarita "$d/e" \
+        --iv 212420edc583a686a94d19a3497363a2 > "$d/o" 2> "$d/err"
+    rc=$?
+    [ "$rc" != 0 ] || fail_msg "README IV unexpectedly decrypted the vector" || return 1
+    grep -q '^cryptoref.py: error: .*2474312226' "$d/err" || fail_msg "error does not name size 2474312226: $(cat "$d/err")" || return 1
+    [ -z "$(find "$d" -name 'e.*')" ] || fail_msg "an output file was written"
+}
+
+run_case cryptoref-kdf-aes128 case_cryptoref_kdf_aes128
+run_case cryptoref-kdf-aes192 case_cryptoref_kdf_aes192
+run_case cryptoref-kdf-aes256-readme case_cryptoref_kdf_aes256_readme
+run_case cryptoref-kdf-3des-readme case_cryptoref_kdf_3des_readme
+run_case cryptoref-open-LSB1aes128cbc case_cryptoref_open_LSB1aes128cbc
+run_case cryptoref-open-LSBIaes256ofb case_cryptoref_open_LSBIaes256ofb
+run_case cryptoref-open-LSBIdescfb case_cryptoref_open_LSBIdescfb
+run_case cryptoref-readme-aes128-iv-erratum case_cryptoref_readme_aes128_iv_erratum
+
 # <<< new cases are inserted above this line; tools-inputs-unmodified stays last >>>
 
 case_tools_inputs_unmodified() {

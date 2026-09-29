@@ -145,3 +145,112 @@ int payload_extract(steg_reader_t *r, uint8_t **data, size_t *data_len, char *ex
     *data_len = size;
     return 0;
 }
+
+int payload_build_encrypted(const uint8_t *cipher, size_t cipher_len, uint8_t **out,
+                            size_t *out_len)
+{
+    uint8_t *p;
+
+    if ((uint64_t)cipher_len > UINT32_MAX)
+        return -1;
+    p = malloc(PAYLOAD_SIZE_LEN + cipher_len);
+    if (!p)
+        return -1;
+    be32_write(p, (uint32_t)cipher_len);
+    if (cipher_len)
+        memcpy(p + PAYLOAD_SIZE_LEN, cipher, cipher_len);
+    *out = p;
+    *out_len = PAYLOAD_SIZE_LEN + cipher_len;
+    return 0;
+}
+
+int payload_read_cipher(steg_reader_t *r, uint8_t **cipher, size_t *cipher_len, char *err,
+                        size_t err_cap)
+{
+    uint8_t sz[PAYLOAD_SIZE_LEN];
+    uint32_t n;
+    uint8_t *buf;
+
+    if (steg_read(r, sz, sizeof sz) != 0) {
+        snprintf(err, err_cap, "carrier too small to hold a size field");
+        return -1;
+    }
+    n = be32_read(sz);
+    if (n == 0) {
+        snprintf(err, err_cap, "the hidden ciphertext size field is 0");
+        return -1;
+    }
+    if ((uint64_t)n > steg_reader_remaining(r)) {
+        snprintf(err, err_cap,
+                 "the hidden ciphertext size field says %" PRIu32 " bytes but at most %" PRIu64
+                 " payload bytes fit in this carrier",
+                 n, steg_reader_remaining(r));
+        return -1;
+    }
+    buf = malloc(n);
+    if (!buf) {
+        snprintf(err, err_cap, "out of memory");
+        return -1;
+    }
+    if (steg_read(r, buf, n) != 0) {
+        free(buf);
+        snprintf(err, err_cap, "carrier ends inside the hidden ciphertext");
+        return -1;
+    }
+    *cipher = buf;
+    *cipher_len = n;
+    return 0;
+}
+
+#define PARSE_PREFIX "the decrypted data is not a valid hidden file: "
+
+int payload_parse(const uint8_t *buf, size_t len, uint8_t **data, size_t *data_len, char *ext,
+                  size_t ext_cap, char *err, size_t err_cap)
+{
+    uint32_t size;
+    size_t ext_len;
+    const uint8_t *e;
+    uint8_t *d;
+
+    if (ext_cap < PAYLOAD_MAX_EXT_LEN + 1) {
+        snprintf(err, err_cap, "internal error: extension buffer too small");
+        return -1;
+    }
+    if (len < 6) {
+        snprintf(err, err_cap, PARSE_PREFIX "the plaintext has only %zu bytes", len);
+        return -1;
+    }
+    size = be32_read(buf);
+    if ((uint64_t)PAYLOAD_SIZE_LEN + size + 2 > len) {
+        snprintf(err, err_cap,
+                 PARSE_PREFIX "size field says %" PRIu32 " bytes but the plaintext has only %zu bytes",
+                 size, len);
+        return -1;
+    }
+    if (buf[len - 1] != 0) {
+        snprintf(err, err_cap, PARSE_PREFIX "the plaintext does not end with a NUL byte");
+        return -1;
+    }
+    e = buf + PAYLOAD_SIZE_LEN + size;
+    ext_len = len - 1 - (PAYLOAD_SIZE_LEN + (size_t)size);
+    if (memchr(e, 0, ext_len) != NULL) {
+        snprintf(err, err_cap, PARSE_PREFIX "unexpected data after the extension terminator");
+        return -1;
+    }
+    if (!ext_bytes_valid((const char *)e, ext_len)) {
+        snprintf(err, err_cap, PARSE_PREFIX "malformed extension field");
+        return -1;
+    }
+    d = malloc(size ? size : 1);
+    if (!d) {
+        snprintf(err, err_cap, "out of memory");
+        return -1;
+    }
+    if (size)
+        memcpy(d, buf + PAYLOAD_SIZE_LEN, size);
+    memcpy(ext, e, ext_len);
+    ext[ext_len] = '\0';
+    *data = d;
+    *data_len = size;
+    return 0;
+}
