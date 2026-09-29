@@ -25,4 +25,4 @@ test-tools:
 	bash tests/run_tool_tests.sh
 
 clean:
-	rm -rf build stegobmp tests/out
+	rm -rf build stegobmp tests/out runs
