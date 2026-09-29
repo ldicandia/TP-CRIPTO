@@ -7,7 +7,7 @@ LDLIBS += -lcrypto
 SRCS := $(wildcard src/*.c)
 OBJS := $(SRCS:src/%.c=build/%.o)
 
-.PHONY: all test test-tools clean
+.PHONY: all test test-tools clean report
 
 all: stegobmp
 
@@ -23,6 +23,11 @@ test: stegobmp
 
 test-tools:
 	bash tests/run_tool_tests.sh
+
+# Informe (LaTeX): mide con ./stegobmp y las herramientas de tools/, compila el PDF y lo valida.
+report: stegobmp
+	python3 informe/scripts/medir_q2.py
+	bash informe/build.sh
 
 clean:
 	rm -rf build stegobmp tests/out runs

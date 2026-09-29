@@ -1,0 +1,348 @@
+% Generado por informe/scripts/medir_q2.py: no editar a mano.
+% Claves definidas (\dato{clave}); tex_int agrupa miles con \, y los decimales usan {,}:
+%   portador-ancho
+%   portador-alto
+%   portador-bytes
+%   cap-LSB1
+%   cap-LSB4
+%   cap-LSBI
+%   png-bytes
+%   png-LSB1-ocultos
+%   png-LSB1-uso
+%   png-LSB1-usados
+%   png-LSB1-cambiados
+%   png-LSB1-bits
+%   png-LSB1-tasa
+%   png-LSB1-pctportador
+%   png-LSB1-mse
+%   png-LSB1-psnr
+%   png-LSB1-rojos
+%   png-LSB1-ultimo
+%   png-LSB1-cambiomax
+%   png-LSB4-ocultos
+%   png-LSB4-uso
+%   png-LSB4-usados
+%   png-LSB4-cambiados
+%   png-LSB4-bits
+%   png-LSB4-tasa
+%   png-LSB4-pctportador
+%   png-LSB4-mse
+%   png-LSB4-psnr
+%   png-LSB4-rojos
+%   png-LSB4-ultimo
+%   png-LSB4-cambiomax
+%   png-LSBI-ocultos
+%   png-LSBI-uso
+%   png-LSBI-usados
+%   png-LSBI-cambiados
+%   png-LSBI-bits
+%   png-LSBI-tasa
+%   png-LSBI-pctportador
+%   png-LSBI-mse
+%   png-LSBI-psnr
+%   png-LSBI-rojos
+%   png-LSBI-ultimo
+%   png-LSBI-cambiomax
+%   paper-bytes
+%   paper-LSB1-ocultos
+%   paper-LSB1-uso
+%   paper-LSB1-usados
+%   paper-LSB1-cambiados
+%   paper-LSB1-bits
+%   paper-LSB1-tasa
+%   paper-LSB1-pctportador
+%   paper-LSB1-mse
+%   paper-LSB1-psnr
+%   paper-LSB1-rojos
+%   paper-LSB1-ultimo
+%   paper-LSB1-cambiomax
+%   paper-LSB4-ocultos
+%   paper-LSB4-uso
+%   paper-LSB4-usados
+%   paper-LSB4-cambiados
+%   paper-LSB4-bits
+%   paper-LSB4-tasa
+%   paper-LSB4-pctportador
+%   paper-LSB4-mse
+%   paper-LSB4-psnr
+%   paper-LSB4-rojos
+%   paper-LSB4-ultimo
+%   paper-LSB4-cambiomax
+%   paper-LSBI-ocultos
+%   paper-LSBI-uso
+%   paper-LSBI-usados
+%   paper-LSBI-cambiados
+%   paper-LSBI-bits
+%   paper-LSBI-tasa
+%   paper-LSBI-pctportador
+%   paper-LSBI-mse
+%   paper-LSBI-psnr
+%   paper-LSBI-rojos
+%   paper-LSBI-ultimo
+%   paper-LSBI-cambiomax
+%   azar-bytes
+%   azar-LSB1-ocultos
+%   azar-LSB1-uso
+%   azar-LSB1-usados
+%   azar-LSB1-cambiados
+%   azar-LSB1-bits
+%   azar-LSB1-tasa
+%   azar-LSB1-pctportador
+%   azar-LSB1-mse
+%   azar-LSB1-psnr
+%   azar-LSB1-rojos
+%   azar-LSB1-ultimo
+%   azar-LSB1-cambiomax
+%   azar-LSB4-ocultos
+%   azar-LSB4-uso
+%   azar-LSB4-usados
+%   azar-LSB4-cambiados
+%   azar-LSB4-bits
+%   azar-LSB4-tasa
+%   azar-LSB4-pctportador
+%   azar-LSB4-mse
+%   azar-LSB4-psnr
+%   azar-LSB4-rojos
+%   azar-LSB4-ultimo
+%   azar-LSB4-cambiomax
+%   azar-LSBI-ocultos
+%   azar-LSBI-uso
+%   azar-LSBI-usados
+%   azar-LSBI-cambiados
+%   azar-LSBI-bits
+%   azar-LSBI-tasa
+%   azar-LSBI-pctportador
+%   azar-LSBI-mse
+%   azar-LSBI-psnr
+%   azar-LSBI-rojos
+%   azar-LSBI-ultimo
+%   azar-LSBI-cambiomax
+%   est-portador-B-lsb
+%   est-portador-B-chi
+%   est-portador-G-lsb
+%   est-portador-G-chi
+%   est-portador-R-lsb
+%   est-portador-R-chi
+%   est-png-LSB1-B-lsb
+%   est-png-LSB1-B-chi
+%   est-png-LSB1-G-lsb
+%   est-png-LSB1-G-chi
+%   est-png-LSB1-R-lsb
+%   est-png-LSB1-R-chi
+%   est-png-LSB4-B-lsb
+%   est-png-LSB4-B-chi
+%   est-png-LSB4-G-lsb
+%   est-png-LSB4-G-chi
+%   est-png-LSB4-R-lsb
+%   est-png-LSB4-R-chi
+%   est-png-LSBI-B-lsb
+%   est-png-LSBI-B-chi
+%   est-png-LSBI-G-lsb
+%   est-png-LSBI-G-chi
+%   est-png-LSBI-R-lsb
+%   est-png-LSBI-R-chi
+%   inv-png-n
+%   inv-png-sin
+%   inv-png-con
+%   inv-png-reduccion
+%   inv-png-flags
+%   inv-png-banderas
+%   inv-paper-n
+%   inv-paper-sin
+%   inv-paper-con
+%   inv-paper-reduccion
+%   inv-paper-flags
+%   inv-paper-banderas
+%   inv-azar-n
+%   inv-azar-sin
+%   inv-azar-con
+%   inv-azar-reduccion
+%   inv-azar-flags
+%   inv-azar-banderas
+%   inv-aes256ofb-n
+%   inv-aes256ofb-sin
+%   inv-aes256ofb-con
+%   inv-aes256ofb-reduccion
+%   inv-aes256ofb-flags
+%   inv-aes256ofb-banderas
+%   inv-descfb-n
+%   inv-descfb-sin
+%   inv-descfb-con
+%   inv-descfb-reduccion
+%   inv-descfb-flags
+%   inv-descfb-banderas
+%   inv-azar-teorico
+%   inv-azar-teoricopct
+\definirdato{portador-ancho}{640}
+\definirdato{portador-alto}{480}
+\definirdato{portador-bytes}{921\,600}
+\definirdato{cap-LSB1}{115\,200}
+\definirdato{cap-LSB4}{460\,800}
+\definirdato{cap-LSBI}{76\,799}
+\definirdato{png-bytes}{44\,886}
+\definirdato{png-LSB1-ocultos}{44\,895}
+\definirdato{png-LSB1-uso}{38{,}97}
+\definirdato{png-LSB1-usados}{359\,160}
+\definirdato{png-LSB1-cambiados}{190\,182}
+\definirdato{png-LSB1-bits}{190\,182}
+\definirdato{png-LSB1-tasa}{52{,}95}
+\definirdato{png-LSB1-pctportador}{20{,}64}
+\definirdato{png-LSB1-mse}{0{,}2064}
+\definirdato{png-LSB1-psnr}{54{,}98}
+\definirdato{png-LSB1-rojos}{63\,341}
+\definirdato{png-LSB1-ultimo}{359\,213}
+\definirdato{png-LSB1-cambiomax}{1}
+\definirdato{png-LSB4-ocultos}{44\,895}
+\definirdato{png-LSB4-uso}{9{,}74}
+\definirdato{png-LSB4-usados}{89\,790}
+\definirdato{png-LSB4-cambiados}{85\,370}
+\definirdato{png-LSB4-bits}{205\,965}
+\definirdato{png-LSB4-tasa}{95{,}08}
+\definirdato{png-LSB4-pctportador}{9{,}26}
+\definirdato{png-LSB4-mse}{8{,}7631}
+\definirdato{png-LSB4-psnr}{38{,}70}
+\definirdato{png-LSB4-rojos}{28\,443}
+\definirdato{png-LSB4-ultimo}{89\,843}
+\definirdato{png-LSB4-cambiomax}{15}
+\definirdato{png-LSBI-ocultos}{44\,895}
+\definirdato{png-LSBI-uso}{58{,}46}
+\definirdato{png-LSBI-usados}{359\,164}
+\definirdato{png-LSBI-cambiados}{170\,852}
+\definirdato{png-LSBI-bits}{170\,852}
+\definirdato{png-LSBI-tasa}{47{,}57}
+\definirdato{png-LSBI-pctportador}{18{,}54}
+\definirdato{png-LSBI-mse}{0{,}1854}
+\definirdato{png-LSBI-psnr}{55{,}45}
+\definirdato{png-LSBI-rojos}{0}
+\definirdato{png-LSBI-ultimo}{538\,794}
+\definirdato{png-LSBI-cambiomax}{1}
+\definirdato{paper-bytes}{226}
+\definirdato{paper-LSB1-ocultos}{235}
+\definirdato{paper-LSB1-uso}{0{,}20}
+\definirdato{paper-LSB1-usados}{1\,880}
+\definirdato{paper-LSB1-cambiados}{1\,051}
+\definirdato{paper-LSB1-bits}{1\,051}
+\definirdato{paper-LSB1-tasa}{55{,}90}
+\definirdato{paper-LSB1-pctportador}{0{,}11}
+\definirdato{paper-LSB1-mse}{0{,}0011}
+\definirdato{paper-LSB1-psnr}{77{,}56}
+\definirdato{paper-LSB1-rojos}{354}
+\definirdato{paper-LSB1-ultimo}{1\,933}
+\definirdato{paper-LSB1-cambiomax}{1}
+\definirdato{paper-LSB4-ocultos}{235}
+\definirdato{paper-LSB4-uso}{0{,}05}
+\definirdato{paper-LSB4-usados}{470}
+\definirdato{paper-LSB4-cambiados}{454}
+\definirdato{paper-LSB4-bits}{1\,041}
+\definirdato{paper-LSB4-tasa}{96{,}60}
+\definirdato{paper-LSB4-pctportador}{0{,}05}
+\definirdato{paper-LSB4-mse}{0{,}0527}
+\definirdato{paper-LSB4-psnr}{60{,}91}
+\definirdato{paper-LSB4-rojos}{150}
+\definirdato{paper-LSB4-ultimo}{523}
+\definirdato{paper-LSB4-cambiomax}{15}
+\definirdato{paper-LSBI-ocultos}{235}
+\definirdato{paper-LSBI-uso}{0{,}31}
+\definirdato{paper-LSBI-usados}{1\,884}
+\definirdato{paper-LSBI-cambiados}{835}
+\definirdato{paper-LSBI-bits}{835}
+\definirdato{paper-LSBI-tasa}{44{,}32}
+\definirdato{paper-LSBI-pctportador}{0{,}09}
+\definirdato{paper-LSBI-mse}{0{,}0009}
+\definirdato{paper-LSBI-psnr}{78{,}56}
+\definirdato{paper-LSBI-rojos}{1}
+\definirdato{paper-LSBI-ultimo}{2\,862}
+\definirdato{paper-LSBI-cambiomax}{1}
+\definirdato{azar-bytes}{40\,000}
+\definirdato{azar-LSB1-ocultos}{40\,009}
+\definirdato{azar-LSB1-uso}{34{,}73}
+\definirdato{azar-LSB1-usados}{320\,072}
+\definirdato{azar-LSB1-cambiados}{159\,834}
+\definirdato{azar-LSB1-bits}{159\,834}
+\definirdato{azar-LSB1-tasa}{49{,}94}
+\definirdato{azar-LSB1-pctportador}{17{,}34}
+\definirdato{azar-LSB1-mse}{0{,}1734}
+\definirdato{azar-LSB1-psnr}{55{,}74}
+\definirdato{azar-LSB1-rojos}{53\,365}
+\definirdato{azar-LSB1-ultimo}{320\,125}
+\definirdato{azar-LSB1-cambiomax}{1}
+\definirdato{azar-LSB4-ocultos}{40\,009}
+\definirdato{azar-LSB4-uso}{8{,}68}
+\definirdato{azar-LSB4-usados}{80\,018}
+\definirdato{azar-LSB4-cambiados}{74\,983}
+\definirdato{azar-LSB4-bits}{160\,169}
+\definirdato{azar-LSB4-tasa}{93{,}71}
+\definirdato{azar-LSB4-pctportador}{8{,}14}
+\definirdato{azar-LSB4-mse}{5{,}7478}
+\definirdato{azar-LSB4-psnr}{40{,}54}
+\definirdato{azar-LSB4-rojos}{24\,977}
+\definirdato{azar-LSB4-ultimo}{80\,071}
+\definirdato{azar-LSB4-cambiomax}{15}
+\definirdato{azar-LSBI-ocultos}{40\,009}
+\definirdato{azar-LSBI-uso}{52{,}10}
+\definirdato{azar-LSBI-usados}{320\,076}
+\definirdato{azar-LSBI-cambiados}{159\,773}
+\definirdato{azar-LSBI-bits}{159\,773}
+\definirdato{azar-LSBI-tasa}{49{,}92}
+\definirdato{azar-LSBI-pctportador}{17{,}34}
+\definirdato{azar-LSBI-mse}{0{,}1734}
+\definirdato{azar-LSBI-psnr}{55{,}74}
+\definirdato{azar-LSBI-rojos}{1}
+\definirdato{azar-LSBI-ultimo}{480\,163}
+\definirdato{azar-LSBI-cambiomax}{1}
+\definirdato{est-portador-B-lsb}{0{,}5475}
+\definirdato{est-portador-B-chi}{8475{,}17}
+\definirdato{est-portador-G-lsb}{0{,}5442}
+\definirdato{est-portador-G-chi}{7592{,}63}
+\definirdato{est-portador-R-lsb}{0{,}5488}
+\definirdato{est-portador-R-chi}{8606{,}07}
+\definirdato{est-png-LSB1-B-lsb}{0{,}4582}
+\definirdato{est-png-LSB1-B-chi}{2125{,}38}
+\definirdato{est-png-LSB1-G-lsb}{0{,}4571}
+\definirdato{est-png-LSB1-G-chi}{2144{,}94}
+\definirdato{est-png-LSB1-R-lsb}{0{,}4577}
+\definirdato{est-png-LSB1-R-chi}{2028{,}76}
+\definirdato{est-png-LSB4-B-lsb}{0{,}5137}
+\definirdato{est-png-LSB4-B-chi}{5232{,}30}
+\definirdato{est-png-LSB4-G-lsb}{0{,}5108}
+\definirdato{est-png-LSB4-G-chi}{4372{,}81}
+\definirdato{est-png-LSB4-R-lsb}{0{,}5147}
+\definirdato{est-png-LSB4-R-chi}{5226{,}22}
+\definirdato{est-png-LSBI-B-lsb}{0{,}5626}
+\definirdato{est-png-LSBI-B-chi}{3520{,}98}
+\definirdato{est-png-LSBI-G-lsb}{0{,}5608}
+\definirdato{est-png-LSBI-G-chi}{3345{,}95}
+\definirdato{est-png-LSBI-R-lsb}{0{,}5488}
+\definirdato{est-png-LSBI-R-chi}{8606{,}07}
+\definirdato{inv-png-n}{359\,160}
+\definirdato{inv-png-sin}{188\,308}
+\definirdato{inv-png-con}{170\,852}
+\definirdato{inv-png-reduccion}{9{,}27}
+\definirdato{inv-png-flags}{1111}
+\definirdato{inv-png-banderas}{0}
+\definirdato{inv-paper-n}{1\,880}
+\definirdato{inv-paper-sin}{1\,044}
+\definirdato{inv-paper-con}{832}
+\definirdato{inv-paper-reduccion}{20{,}31}
+\definirdato{inv-paper-flags}{0001}
+\definirdato{inv-paper-banderas}{3}
+\definirdato{inv-azar-n}{320\,072}
+\definirdato{inv-azar-sin}{160\,032}
+\definirdato{inv-azar-con}{159\,771}
+\definirdato{inv-azar-reduccion}{0{,}16}
+\definirdato{inv-azar-flags}{0101}
+\definirdato{inv-azar-banderas}{2}
+\definirdato{inv-aes256ofb-n}{359\,192}
+\definirdato{inv-aes256ofb-sin}{179\,491}
+\definirdato{inv-aes256ofb-con}{179\,329}
+\definirdato{inv-aes256ofb-reduccion}{0{,}09}
+\definirdato{inv-aes256ofb-flags}{0001}
+\definirdato{inv-aes256ofb-banderas}{3}
+\definirdato{inv-descfb-n}{359\,192}
+\definirdato{inv-descfb-sin}{179\,425}
+\definirdato{inv-descfb-con}{179\,195}
+\definirdato{inv-descfb-reduccion}{0{,}13}
+\definirdato{inv-descfb-flags}{1000}
+\definirdato{inv-descfb-banderas}{3}
+\definirdato{inv-azar-teorico}{439}
+\definirdato{inv-azar-teoricopct}{0{,}27}

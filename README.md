@@ -135,6 +135,7 @@ Estas herramientas no son necesarias para compilar ni usar `stegobmp`.
 
 - `make test` corre la suite completa (requiere `python3` y el comando `openssl`).
 - `bash tests/check_readme.sh` copia `Makefile`, `README.md`, `src/` y `Ejemplo/` a un directorio temporal, compila con la línea de este README y ejecuta literalmente cada ejemplo (solo requiere bash, make y gcc).
+- `make report` regenera las mediciones y compila el informe a `informe/informe.pdf` (requiere `python3`, `pdflatex` y `mutool`; no hace falta para compilar ni usar `stegobmp`).
 
 ## Estructura
 
@@ -147,3 +148,4 @@ Estas herramientas no son necesarias para compilar ni usar `stegobmp`.
 - `src/fileio.c`, `src/fileio.h`: lectura de archivos y escritura atómica.
 - `docs/LSBI-NOTES.md`: notas sobre el modelo de LSBI.
 - `docs/CRYPTO-NOTES.md`: notas sobre la derivación de clave e IV y los modos.
+- `informe/`: fuente LaTeX del informe, scripts de medición y datos generados.

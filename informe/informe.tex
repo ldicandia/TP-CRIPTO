@@ -1,0 +1,199 @@
+% Informe del TP de Implementación: Esteganografía (Criptografía y Seguridad, 72.04, ITBA).
+% Se compila con `make report` (o `bash informe/build.sh`); no usar latexmk (no está instalado).
+% Las cifras medidas de las Cuestiones II y VII salen de generado/ (regenerado por medir_q2.py).
+\documentclass[a4paper,11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+% El paquete de hyphenation español no está instalado en todos los entornos: se importa el idioma con
+% \babelprovide (la opción `spanish` de babel falla aquí con "Unknown option").
+\usepackage{babel}
+\babelprovide[import,main]{spanish}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage[hidelinks,unicode=true]{hyperref}
+\input{glyphtounicode}
+\pdfgentounicode=1
+
+\setcounter{secnumdepth}{0}
+\setlength{\emergencystretch}{3em}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+\lstset{basicstyle=\ttfamily\small,breaklines=true,columns=fullflexible,keepspaces=true,
+  frame=single,framerule=0.3pt,xleftmargin=0.5em,xrightmargin=0.5em,aboveskip=0.8em,belowskip=0.8em}
+
+% ---------------------------------------------------------------- datos medidos
+% \definirdato{clave}{valor} guarda un valor calculado; \dato{clave} lo imprime y detiene la
+% compilación si la clave no existe (una medición faltante nunca pasa inadvertida).
+\makeatletter
+\newcommand{\definirdato}[2]{\expandafter\gdef\csname dato@#1\endcsname{#2}}
+\newcommand{\dato}[1]{%
+  \ifcsname dato@#1\endcsname
+    \csname dato@#1\endcsname
+  \else
+    \PackageError{informe}{Dato no definido: #1}{Falta la clave en generado/datos.tex; ejecutar make report.}%
+  \fi}
+\makeatother
+\input{generado/datos}
+
+% ---------------------------------------------------------------- estructura
+\newenvironment{enunciado}{\begin{quote}\itshape\noindent\textbf{Enunciado.}\ }{\end{quote}}
+\newcommand{\pendienteEstegoanalisis}{%
+  \begin{center}\fbox{\parbox{0.9\linewidth}{\itshape Pendiente: esta cuestión requiere los archivos de estegoanálisis de la cátedra, que todavía no fueron entregados.}}\end{center}}
+\newcommand{\respuesta}[1]{\IfFileExists{secciones/#1.tex}{\input{secciones/#1}}{}}
+
+\title{Trabajo Práctico de Implementación: Esteganografía}
+\author{Lucas Di Candia}
+\date{\today}
+\hypersetup{pdftitle={Trabajo Práctico de Implementación: Esteganografía},pdfauthor={Lucas Di Candia}}
+
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  \vspace*{4cm}
+  {\Huge\bfseries Trabajo Práctico de Implementación:\\Esteganografía\par}
+  \vspace{1.5cm}
+  {\Large Criptografía y Seguridad (72.04) --- Instituto Tecnológico de Buenos Aires\par}
+  \vspace{2cm}
+  {\Large Lucas Di Candia\par}
+  \vspace{1cm}
+  {\large\today\par}
+\end{titlepage}
+
+\tableofcontents
+\clearpage
+
+% ---------------------------------------------------------------- introducción
+\section{Introducción}\label{sec:introduccion}
+
+\texttt{stegobmp} es un programa de línea de comandos escrito en C, con OpenSSL, que oculta cualquier
+archivo dentro de una imagen BMP de 24 bits sin compresión (versión 3) y lo recupera después. Implementa
+los tres métodos que pide la cátedra~\cite{catedra2026}: LSB1, LSB4 y LSBI, este último la variante con
+inversión de bits de Majeed y Sulaiman~\cite{majeed2015}. Opcionalmente, antes de ocultar, cifra el
+mensaje con AES (128, 192 o 256 bits) o con 3DES, en los modos ECB, CFB, OFB o CBC, derivando la clave
+y el vector de inicialización con PBKDF2 a partir de una contraseña.
+
+La esteganografía oculta la existencia misma del mensaje, a diferencia de la criptografía, que oculta su contenido~\cite{johnson1998,gomezcardenas}; por eso el programa permite combinar ambas.
+
+\textbf{Organización.} El informe responde en orden las cuestiones de la sección 7 del enunciado, una sección por cuestión, y cada respuesta empieza
+transcribiendo la pregunta. Las Cuestiones I y II analizan el documento de Majeed y Sulaiman y comparan los tres métodos; las Cuestiones VII y VIII explican y discuten la mejora que propone LSBI; la IX cuenta las
+dificultades de la implementación y la X propone mejoras. Las Cuestiones III a VI dependen de los archivos de estegoanálisis de la cátedra, que todavía no fueron entregados, y
+quedan marcadas como pendientes.
+
+\textbf{Convenciones.} Las páginas citadas del documento de Majeed y Sulaiman son las de la revista (342 a 348). Todas las cifras medidas que se
+citan en las Cuestiones II y VII (capacidades, bytes modificados, MSE, PSNR, estadísticos $\chi^2$, conteos de inversión) se
+regeneran con \texttt{make report} a partir del propio programa y de las herramientas de análisis del
+repositorio, y se contrastaron con los archivos de \texttt{Ejemplo/} de la cátedra; ninguna se escribió a mano. Las rutas como \texttt{docs/LSBI-NOTES.md} remiten a las notas del proyecto.
+Para regenerar este informe basta ejecutar \texttt{make report} en la raíz del repositorio.
+
+% ---------------------------------------------------------------- cuestiones
+\section{Cuestión I: Análisis del documento de Majeed y Sulaiman}\label{sec:cuestion-i}
+\begin{enunciado}
+Discutir los siguientes aspectos relativos al documento. a) Organización formal del documento. b) La descripción del algoritmo. c) La notación utilizada, ¿es clara? ¿hay algún error o contradicción?
+\end{enunciado}
+\respuesta{q01-paper}
+
+\section{Cuestión II: Comparación de LSB1, LSB4 y LSBI}\label{sec:cuestion-ii}
+\begin{enunciado}
+Esteganografiar un mismo archivo en un .bmp con cada uno de los tres algoritmos, y comparar los resultados obtenidos. Hacer un cuadro comparativo de los tres algoritmos estableciendo ventajas y desventajas.
+\end{enunciado}
+\respuesta{q02-comparacion}
+
+\section{Cuestión III: Procedimiento de estegoanálisis}\label{sec:cuestion-iii}
+\begin{enunciado}
+Explicar detalladamente el procedimiento realizado para descubrir qué se había ocultado en cada archivo y de qué modo. Indicar qué se encontró en cada archivo.
+\end{enunciado}
+\pendienteEstegoanalisis
+
+\section{Cuestión IV: Mensajes ocultos dentro de mensajes ocultos}\label{sec:cuestion-iv}
+\begin{enunciado}
+Algunos mensajes ocultos tenían, a su vez, otros mensajes ocultos. Indica cuál era ese mensaje y cómo se había ocultado.
+\end{enunciado}
+\pendienteEstegoanalisis
+
+\section{Cuestión V: El fragmento de película}\label{sec:cuestion-v}
+\begin{enunciado}
+Uno de los archivos ocultos era una porción de un video de una película, donde se ve ejemplificado una manera de ocultar información ¿qué se ocultaba y sobre qué portador?
+\end{enunciado}
+\pendienteEstegoanalisis
+
+\section{Cuestión VI: El método de ocultamiento desconocido}\label{sec:cuestion-vi}
+\begin{enunciado}
+¿De qué se trató el método de esteganografiado que no era LSB1 ni LSB4 ni LSBI? ¿Es un método eficaz? ¿Por qué?
+\end{enunciado}
+\pendienteEstegoanalisis
+
+\section{Cuestión VII: Por qué LSBI mejora a LSB}\label{sec:cuestion-vii}
+\begin{enunciado}
+¿por qué la propuesta del documento de Majeed y Sulaiman es realmente una mejora respecto de LSB común?
+\end{enunciado}
+\respuesta{q07-mejora-lsbi}
+
+\section{Cuestión VIII: Otras formas de guardar los patrones invertidos}\label{sec:cuestion-viii}
+\begin{enunciado}
+En la implementación se optó por guardar los patrones invertidos antes del mensaje ¿de qué otra manera o en qué otro lugar podría guardarse el registro de los patrones invertidos?
+\end{enunciado}
+\respuesta{q08-registro-patrones}
+
+\section{Cuestión IX: Dificultades de implementación}\label{sec:cuestion-ix}
+\begin{enunciado}
+¿Qué dificultades encontraron en la implementación del algoritmo del paper?
+\end{enunciado}
+\respuesta{q09-dificultades}
+
+\section{Cuestión X: Mejoras y extensiones futuras}\label{sec:cuestion-x}
+\begin{enunciado}
+¿Qué mejoras o futuras extensiones harías al programa stegobmp?
+\end{enunciado}
+\respuesta{q10-mejoras}
+
+% ---------------------------------------------------------------- referencias
+\begin{thebibliography}{99}
+
+\bibitem{majeed2015} M. A. Majeed and R. Sulaiman, ``An improved LSB image steganography technique using bit-inverse in 24 bit colour image'', \emph{Journal of Theoretical and Applied Information Technology}, vol. 80, no. 2, pp. 342--348, 2015.
+
+\bibitem{catedra2026} Cátedra de Criptografía y Seguridad, ITBA, ``Trabajo Práctico de Implementación: Esteganografía'', 2026.
+
+\bibitem{johnson1998} N. F. Johnson and S. Jajodia, ``Exploring steganography: Seeing the unseen'', \emph{IEEE Computer}, vol. 31, no. 2, pp. 26--34, 1998.
+
+\bibitem{westfeld2000} A. Westfeld and A. Pfitzmann, ``Attacks on steganographic systems'', \emph{Information Hiding 1999}, LNCS 1768, pp. 61--76, Springer, 2000.
+
+\bibitem{fridrich2001} J. Fridrich, M. Goljan and R. Du, ``Reliable detection of LSB steganography in color and grayscale images'', \emph{Proc. ACM Workshop on Multimedia and Security}, pp. 27--30, 2001.
+
+\bibitem{fridrich2009} J. Fridrich, \emph{Steganography in Digital Media: Principles, Algorithms, and Applications}, Cambridge University Press, 2009.
+
+\bibitem{sharp2001} T. Sharp, ``An implementation of key-based digital signal steganography'', \emph{Information Hiding 2001}, LNCS 2137, pp. 13--26, Springer, 2001.
+
+\bibitem{kerckhoffs1883} A. Kerckhoffs, ``La cryptographie militaire'', \emph{Journal des sciences militaires}, vol. IX, pp. 5--38, 1883.
+
+\bibitem{rfc8018} K. Moriarty, B. Kaliski and A. Rusch, ``PKCS \#5: Password-Based Cryptography Specification Version 2.1'', RFC 8018, 2017.
+
+\bibitem{nist80038a} M. Dworkin, ``Recommendation for Block Cipher Modes of Operation: Methods and Techniques'', NIST SP 800-38A, 2001.
+
+\bibitem{nist80038d} M. Dworkin, ``Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC'', NIST SP 800-38D, 2007.
+
+\bibitem{nist800132} M. Sönmez Turan, E. Barker, W. Burr and L. Chen, ``Recommendation for Password-Based Key Derivation, Part 1: Storage Applications'', NIST SP 800-132, 2010.
+
+\bibitem{rfc9106} A. Biryukov, D. Dinu, D. Khovratovich and S. Josefsson, ``Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work Applications'', RFC 9106, 2021.
+
+\bibitem{microsoftbmp} Microsoft, ``BITMAPFILEHEADER structure (wingdi.h)'', documentación de la API Win32, enlace indicado en el enunciado del TP.
+
+\bibitem{gomezcardenas} R. Gómez Cárdenas, ``Esteganografía'', \url{http://www.cryptomex.org/SlidesCripto/Estegano.pdf}.
+
+\bibitem{opensslevp} OpenSSL Project, ``EVP\_EncryptInit'' (página de manual), \url{https://www.openssl.org/docs/}.
+
+\end{thebibliography}
+
+\end{document}

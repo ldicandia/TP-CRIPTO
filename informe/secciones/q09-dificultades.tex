@@ -1,0 +1,121 @@
+% Cuestión IX. Dificultades de implementación. Cada punto remite a un artefacto del repositorio
+% (docs/LSBI-NOTES.md, docs/CRYPTO-NOTES.md, un caso de prueba, el Makefile, .gitattributes o los resúmenes de fase).
+% Los valores citados se volvieron a ejecutar antes de escribirlos.
+
+Las dificultades que siguen son las que quedaron registradas en el repositorio durante la implementación, no una reconstrucción de memoria. Cada una nombra el archivo donde puede
+comprobarse: las notas \texttt{docs/LSBI-NOTES.md} (entradas A1 a A10) y \texttt{docs/CRYPTO-NOTES.md} (entradas K1 a K8), un caso de \texttt{tests/run\_tests.sh}, el \texttt{Makefile}, el
+archivo \texttt{.gitattributes} o los resúmenes de cada fase. Las ambigüedades del propio documento de Majeed y Sulaiman~\cite{majeed2015} se analizan en la \hyperref[sec:cuestion-i]{Cuestión I}; aquí se cuenta
+cómo se enfrentaron al programar.
+
+\subsection{El algoritmo LSBI}
+
+El paper deja sin definir casi todo lo que hace falta para escribir código: en qué orden se recorren los bytes, qué canales llevan datos, dónde se guarda el registro de patrones
+invertidos, sobre qué bytes se cuentan los cambios, qué pasa en un empate y en qué orden se leen los dos bits del patrón. Con varias lecturas posibles para cada una de esas preguntas, escribir
+directamente el programa en C habría impedido distinguir un error de lectura de un error de código. Por eso primero se escribió un modelo de referencia en Python
+(\texttt{tools/lsbi.py}) con un interruptor por cada lectura alternativa, y se lo enfrentó a los tres archivos LSBI de la cátedra antes de escribir una línea de C.
+
+La sonda (\texttt{python3 tools/lsbi.py probe}) decodifica el vector con la lectura elegida e informa el tamaño leído, si el encuadre es válido y si volver a insertar el mensaje reproduce el archivo. El cuadro~\ref{tab:q9-hipotesis}
+resume lo que dio cada lectura sobre \texttt{Ejemplo/lado.bmp} y el vector correspondiente. El tamaño correcto es 44\,886 bytes (la imagen PNG oculta). Seis lecturas se descartan y dos no pueden decidirse con los vectores.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{1.9cm}@{}}
+\toprule
+Lectura alternativa & Interruptor de la sonda & Resultado observado & Conclusión \\
+\midrule
+Los bytes rojos también llevan mensaje & \texttt{--use-red} & tamaño 658, encuadre de texto cifrado, la reinserción no coincide & Descartada \\
+El salto del rojo se cuenta desde el byte 4 & \texttt{--red-relative} & tamaño 109\,078, encuadre inválido, la reinserción no coincide & Descartada \\
+Bandera del patrón $p$ en el byte $3-p$ & \texttt{--flag-order reversed} & sobre el vector AES-256 (banderas \texttt{0001}): tamaño 4\,294\,922\,424, encuadre inválido, la reinserción no coincide & Descartada \\
+Bits de cada byte del mensaje del menos al más significativo & \texttt{--bit-order lsb} & tamaño 62\,826, encuadre de texto cifrado (pero la reinserción \emph{sí} coincide) & Descartada \\
+Los cambios se cuentan también en los bytes rojos & \texttt{--count-red} & banderas recalculadas \texttt{0000} contra \texttt{1111}; la reinserción no coincide & Descartada \\
+Una bandera en 0 significa patrón invertido & \texttt{--flag-zero-inverts} & tamaño 4\,294\,922\,409, encuadre inválido, la reinserción no coincide & Descartada \\
+Un empate de cambios invierte el patrón & \texttt{--tie invert} & la reinserción coincide igual & Indecidible \\
+Los dos dígitos del patrón se leen al revés (\texttt{01} y \texttt{10}) & \texttt{--pattern-bits 12} & la reinserción coincide igual en los tres vectores & Indecidible \\
+\bottomrule
+\end{tabularx}
+\caption{Lecturas alternativas de LSBI probadas contra los vectores de la cátedra (entradas A1 a A6 de \texttt{docs/LSBI-NOTES.md})}
+\label{tab:q9-hipotesis}
+\end{table}
+
+Una lección de este trabajo está en la fila del orden de los bits: \texttt{reembed\_identical=yes} \emph{no} prueba que la decodificación sea correcta. Una decodificación equivocada también se reinserta sin
+pérdida, porque codificar y decodificar con la misma regla equivocada es una identidad. Lo que discrimina es el tamaño decodificado y el hash del PNG extraído
+(nota A3 y resumen de la fase 2). Por eso las notas registran en cada caso el tamaño decodificado y el \texttt{sha256} de la imagen extraída.
+
+Lo que queda sin decidir es importante para los archivos de estegoanálisis: la regla de empate (nota A6), el orden de los dígitos del patrón (A4, que sólo importaría si las banderas de \texttt{01} y \texttt{10}
+difirieran, cosa que ninguno de los tres vectores muestra), la capacidad máxima y el texto del mensaje de error (A8) y el conteo del salto del rojo cuando hay relleno de filas (A9, porque \texttt{lado.bmp}
+mide 640 píxeles de ancho y no tiene relleno). Las cuatro decisiones están marcadas \texttt{flagged-unverified} en las notas, para revisarlas primero si aparece un archivo de la cátedra que las contradiga.
+
+\subsection{Encripción}
+
+\textbf{Una errata en el archivo de ejemplo.} \texttt{Ejemplo/README.txt} lista, para el archivo \texttt{ladoLSB1aes128cbc\allowbreak.bmp}, el vector de inicialización \texttt{212420edc583a686a94d19a3497363a2}, y una
+clave derivada rotulada ``32 bytes'' que en realidad tiene 32 dígitos hexadecimales, es decir, 16 bytes. Con la derivación descrita en la consigna, \texttt{python3 tools/cryptoref.py kdf aes128 margarita}
+da la misma clave (\texttt{03db0a157acfe8de523760aa731d8122}) pero el vector \texttt{b25f8d99f3173ec0b52849f459a4c20d}; el de la lista es el de AES-256. Con el vector de la lista, la lectura
+del archivo falla con \texttt{decrypted size field says 2474312226 bytes but the plaintext has only 44895 bytes}, porque el primer bloque CBC sale corrupto (sólo cambia el IV, así que el relleno del último
+bloque sigue siendo válido). Con el vector derivado se recupera el PNG de 44\,886 bytes. El archivo mismo decidió cuál era el error (nota K3, casos \texttt{cryptoref-kdf-aes128} y
+\texttt{cryptoref-readme-aes128-iv-erratum}).
+
+\textbf{Una sola derivación, primero la clave.} La consigna no dice cómo se separan clave y vector según el algoritmo. Los tres vectores de la cátedra obedecen una sola llamada a PBKDF2~\cite{rfc8018}
+que produce $\mathit{long\_clave}+\mathit{long\_iv}$ bytes, con la clave primero (nota K2). Esa regla es la que fija AES-192, que no tiene archivo de ejemplo (nota K4, sin verificar contra un vector de la cátedra: el
+oráculo independiente aplica la misma regla, de modo que prueba consistencia y no corrección).
+
+\textbf{CFB de 8 bits y OFB de 128 bits.} Los nombres de la consigna deben traducirse con cuidado a los de OpenSSL~\cite{opensslevp}: CFB es \texttt{EVP\_*\_cfb8} en todos los algoritmos y OFB es el \texttt{EVP\_*\_ofb} de bloque
+completo, con lo que el OFB de 3DES tiene forzosamente realimentación de 64 bits~\cite{nist80038a}. El vector de 3DES sólo se descifra con \texttt{cfb8} (nota K6).
+
+\textbf{Relleno y capacidad.} Sólo ECB y CBC rellenan (PKCS5). El programa necesita conocer la longitud del texto cifrado \emph{antes} de comprobar la capacidad del portador, así que la calcula: es la del texto plano redondeada
+hacia arriba al siguiente múltiplo del bloque (más un bloque si ya era múltiplo) para ECB y CBC, y la del texto plano para CFB y OFB. Se midió contra el oráculo para las 16 combinaciones (nota K5).
+
+\textbf{Contraseña equivocada sin código de autenticación.} El formato no tiene MAC. Una contraseña, algoritmo o modo equivocados se detectan por el relleno PKCS5 (ECB y CBC) y por una validación estricta del encuadre del texto plano
+(tamaño coherente, un NUL final, extensión imprimible), de modo que casi siempre hay un error claro (código de salida 2) y ningún archivo de salida. Es posible, aunque muy improbable, que una contraseña equivocada pase ambos controles y produzca
+basura. Es una debilidad del formato, no del código, y se registró en la sección de modelo de amenazas de \texttt{docs/CRYPTO-NOTES.md}.
+
+\textbf{Sin \texttt{-pass} no hay cifrado.} La consigna dice que sin contraseña se hace esteganografía sin cifrar. Si el usuario da \texttt{-a} o \texttt{-m} pero no \texttt{-pass}, el programa ignora esas opciones, y como el
+silencio sería confuso imprime en el error estándar \texttt{stegobmp: note: -a/-m ignored because no -pass was given (no encryption)} (nota K8).
+
+\subsection{Formato del mensaje y portador}
+
+El tamaño va en cuatro bytes \emph{big-endian}, seguido de los datos, de la extensión (un punto y sus letras) y de un byte NUL; con cifrado se antepone el tamaño del texto cifrado. Como cualquier archivo estego puede haber sido
+alterado, el tamaño leído se acota con la capacidad restante del portador antes de reservar memoria, y el texto plano descifrado se valida por completo antes de escribir nada (casos \texttt{decrypt-hostile-size-*} y
+\texttt{cap-enc-sparse-5GiB}, resumen 03-02).
+
+El portador también trae detalles. El bloque de píxeles se usa completo, con los bytes de relleno de fila incluidos y en el orden del archivo (no en el orden de la imagen); las filas van de abajo hacia arriba, aunque el programa admite
+alturas negativas; el encabezado y cualquier byte posterior al bloque se copian sin cambios. Todas las salidas se escriben primero en un archivo temporal del mismo directorio y luego se renombran sobre el destino (\texttt{rename}), de modo que
+un error nunca deja un archivo a medias, incluso si \texttt{-out} coincide con \texttt{-p} (documento \texttt{SKELETON.md} de la fase 1).
+
+\subsection{La consigna y los archivos de ejemplo}
+
+Los comandos de ejemplo de la consigna~\cite{catedra2026} no se pueden copiar y pegar. Están escritos con un guion largo (–) en lugar del guion común y con comillas tipográficas (“mensaje1.txt”): el texto extraído del PDF
+contiene \texttt{–in}, \texttt{–p}, \texttt{–steg} y \texttt{–a}. Tecleado tal cual, \texttt{./stegobmp -embed –in x -p Ejemplo/lado.bmp -out y.bmp -steg LSB1} termina con código de salida 1 y el mensaje
+\texttt{stegobmp: error: unknown parameter '–in'} seguido de las líneas de uso. Se optó por respetar la sintaxis exacta del enunciado y no aceptar el guion largo, porque la consigna exige respetar esa sintaxis. El ejemplo de extracción, además, escribe
+\texttt{“imagenmas1 .bmp”} con un espacio antes de la extensión, que no es el nombre del archivo que se generó en el ejemplo anterior.
+
+Otras incoherencias menores: el método se llama ``LSB Enhanced'' en la sección 5.1 y ``LSB Improved'' en el resto de la consigna, aunque el valor de \texttt{-steg} es siempre \texttt{LSBI}; el ejemplo 2 llama ``imagen'' a un archivo
+\texttt{.txt}; los indicadores de patrones se guardan con los tres canales R, G y B mientras que el mensaje salta el rojo, cosa que sólo dice el paper (nota A2 y punto 16 de las incoherencias listadas en \texttt{docs/LSBI-NOTES.md}). Por último,
+\texttt{Ejemplo/README.txt} no está en UTF-8: el comando \texttt{file} lo identifica como ``ISO-8859 text, with CRLF line terminators'', así que sus letras acentuadas aparecen como caracteres de reemplazo en una terminal UTF-8.
+
+\subsection{Compilación y portabilidad}
+
+La consigna exige que el programa compile y corra en Ubuntu 22.04.3 y en pampero, dos entornos con versiones distintas de OpenSSL (de la 1.0.2 a la 3.x en los sistemas que podían aparecer), cuya interfaz de \texttt{EVP} cambió de forma incompatible entre ellas
+(por ejemplo, la creación y destrucción de contextos). El código se limita a llamadas comunes a 1.0.2, 1.1.1 y 3.x, y el caso \texttt{build-openssl-api-allowlist} de \texttt{make test} falla si aparece un identificador de OpenSSL fuera de una lista
+permitida, un encabezado distinto de \texttt{evp.h}, \texttt{crypto.h} o \texttt{err.h}, o una biblioteca de enlace distinta de \texttt{libcrypto}.
+
+Se verificó la compilación limpia y las pruebas en pampero (OpenSSL 3.6.3) y en Ubuntu 24.04 bajo WSL2 (OpenSSL 3.0.13, gcc 13.3). \textbf{El entorno exacto que nombra la consigna, Ubuntu 22.04.3, no se probó}: la distribución no estaba instalada en la máquina de desarrollo y se
+renunció a esa verificación; lo que da confianza en su lugar es la lista de identificadores permitidos y las dos pruebas en entornos reales.
+
+Tres problemas concretos de construcción quedaron documentados. Primero, \texttt{CC ?= gcc} en el \texttt{Makefile} no tiene efecto, porque \texttt{make} ya define \texttt{CC} como \texttt{cc}; se corrigió con
+\texttt{ifeq (\$(origin CC),default)}, que conserva los cambios hechos desde la línea de comandos (resumen 03-03). Segundo, la dependencia de enlace se comprueba con las entradas \texttt{NEEDED} de \texttt{readelf} y no con
+\texttt{ldd}, para que las dependencias transitivas de \texttt{libcrypto} en pampero no cuenten como dependencias del programa. Tercero, una copia de trabajo en Windows con \texttt{core.autocrlf=true} convierte los finales de línea en CRLF, con lo que
+\texttt{bash} y \texttt{make} fallan bajo WSL; se resolvió con \texttt{.gitattributes}, que fuerza \texttt{eol=lf} en \texttt{*.c}, \texttt{*.h}, \texttt{*.sh}, \texttt{*.py} y \texttt{Makefile} y declara binarios los \texttt{.bmp}, \texttt{.png} y \texttt{.pdf}
+para que los vectores nunca se conviertan como texto. Hay además fricciones propias de WSL: \texttt{/tmp} no se comparte entre invocaciones separadas de \texttt{wsl} (las comparaciones antes y después hubo que hacerlas dentro de una misma llamada) y, sobre el disco NTFS, \texttt{make} a veces
+avisa \texttt{Clock skew detected}.
+
+\subsection{Cómo se verificó}
+
+\texttt{make test} ejecuta 242 casos (\texttt{SUMMARY: 242 passed, 0 failed}), y \texttt{make test-tools} ejecuta 42 casos (\texttt{SUMMARY: 42 passed, 0 failed}) de las herramientas de análisis. Incluyen: la extracción de los seis vectores de la cátedra y su reinserción byte a byte
+(cada archivo se reproduce exactamente al insertar de nuevo el mismo mensaje con la misma clave); la matriz de métodos por algoritmos y modos, con un recorrido completo por LSB1, LSB4 y LSBI con y sin cifrado; casos de contraseña, algoritmo y modo equivocados, de
+datos dañados y de tamaños hostiles; corridas con AddressSanitizer y UBSan; y la ejecución textual de los ejemplos del README por \texttt{tests/check\_readme.sh}, para que la documentación no pueda divergir del programa.
+
+El descifrado se compara con un oráculo independiente, \texttt{tools/cryptoref.py}, que usa \texttt{hashlib.pbkdf2\_hmac} de Python y la línea de comandos de \texttt{openssl}, y no comparte ningún código con la implementación en C.
+Esa independencia es la que permitió encontrar la errata del archivo de ejemplo. Los límites de la verificación están dichos arriba: AES-192 y varios modos (todas las combinaciones ECB, AES en CFB de 8 bits y 3DES en OFB) sólo están contrastados
+con el oráculo y no con archivos de la cátedra, y los cuatro puntos de LSBI sin decidir se validarán cuando lleguen los archivos de estegoanálisis.

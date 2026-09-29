@@ -5,3 +5,6 @@
 /tests/out/
 /salida_*
 runs/
+/informe/.compilacion-*/
+/informe/informe.log
+/informe/informe-error.log

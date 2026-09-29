@@ -1,0 +1,79 @@
+% Cuestión VIII. Alternativas para guardar el registro de los patrones invertidos.
+
+\subsection{La elección actual}
+
+La consigna~\cite{catedra2026} (páginas 4 y 5) fija dónde se guarda el registro: cuatro bits, uno por patrón (\texttt{00}, \texttt{01}, \texttt{10} y \texttt{11}),
+escritos con LSB1 normal, sin invertir, en los cuatro primeros bytes del bloque de píxeles y usando los tres canales, antes de los bits del mensaje.
+Un uno significa que el patrón se invirtió. Esta implementación sigue esa regla, y los vectores de la cátedra la confirman (véase la \hyperref[sec:cuestion-i]{Cuestión I} y la
+\hyperref[sec:cuestion-ix]{Cuestión IX}).
+
+Tiene tres ventajas. La posición es fija y conocida, de modo que el receptor puede leer las banderas antes de decodificar nada. No depende del
+largo del mensaje ni de una clave. Y su costo es mínimo: cuatro bytes del portador. Tiene también desventajas. La posición es previsible para cualquiera que conozca el método.
+Una sola bandera dañada invierte un grupo entero de bytes y arruina el mensaje, porque no hay redundancia. Y, como se usan los tres canales, el tercero de los cuatro
+bytes es rojo, y es el único byte rojo que LSBI puede modificar (con la carga del paper cambió \dato{paper-LSBI-rojos} byte rojo).
+
+\subsection{Alternativas}
+
+El cuadro~\ref{tab:q8-alternativas} compara la elección actual con otras nueve. Las columnas son el costo en capacidad, la detectabilidad (qué tan fácil es que alguien note o localice
+el registro) y la compatibilidad y robustez (qué exige del receptor, si sobrevive a cambios de la imagen y si es compatible con los archivos de la cátedra). Las valoraciones son un análisis propio. Salvo la primera, ninguna alternativa es compatible con los archivos LSBI de la cátedra, porque éstos traen las banderas donde manda la consigna.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{3.0cm}>{\raggedright\arraybackslash}X@{}}
+\toprule
+Alternativa & Dónde / cómo & Costo en capacidad & Detectabilidad & Compatibilidad y robustez \\
+\midrule
+1. Elección actual (referencia) & Cuatro bits con LSB1 en los primeros 4 bytes del bloque, antes del mensaje & 4 bytes & Posición fija y conocida; un byte rojo modificado & Compatible con la cátedra; se lee antes de decodificar; sin redundancia \\
+2. Después del mensaje & Cuatro bits en los primeros bytes libres tras el último bit del mensaje & 4 bytes & Posición que depende del largo & El tamaño también está invertido: sin las banderas no se halla el final; hay que guardar el tamaño sin invertir \\
+3. Desplazamiento fijo al final del bloque & Últimos 4 bytes del bloque de píxeles & 4 bytes, aunque el mensaje sea corto & Lugar previsible, lejos de la zona del mensaje & Independiente del largo; el mensaje no debe pisarlos \\
+4. LSB de bytes rojos & Cuatro bytes rojos, que LSBI no usa para el mensaje & Ninguno de verde ni de azul & Hasta cuatro cambios en el rojo, que deja de estar intacto & Posición fija; no altera los grupos, porque los bits 1 y 2 no cambian \\
+5. Campos reservados del encabezado & \texttt{bfReserved1} y \texttt{bfReserved2}, bytes 6 a 9~\cite{microsoftbmp}: 32 bits & Ninguno de píxeles & Alta: deben valer cero & Frágil: los editores reescriben el encabezado; este programa no los examina \\
+6. Bytes de relleno de fila & Relleno al final de cada fila si el ancho por 3 no es múltiplo de 4 & Ninguno de píxeles, pero no siempre existe (\texttt{lado.bmp} no tiene) & Suele valer cero: otro valor es sospechoso & No siempre hay lugar; la consigna manda usar el relleno como portador \\
+7. Posiciones pseudoaleatorias & Una semilla derivada de la contraseña (PBKDF2) elige 4 posiciones & 4 bytes & Baja para quien no tiene la clave & Exige contraseña aun sin cifrado; hay que excluir las posiciones del mensaje \\
+8. No guardarlo & Probar las 16 combinaciones de banderas y quedarse con la que da un encuadre válido & Ninguno & Ninguna marca en la imagen & Hasta 16 decodificaciones; posible ambigüedad \\
+9. Copias redundantes & Tres copias de las banderas en posiciones separadas, decisión por mayoría & 12 bytes & Más bytes alterados y un patrón repetido & Tolera el daño de una copia \\
+10. Mapa por bloques & Cuatro banderas por tramo del bloque de píxeles, al inicio de cada tramo & 4 bytes por tramo & Banderas dispersas por la imagen & Más ganancia de inversión, pero más costo y complejidad \\
+\bottomrule
+\end{tabularx}
+\caption{Alternativas para guardar el registro de patrones invertidos}
+\label{tab:q8-alternativas}
+\end{table}
+
+\subsection{Análisis de las alternativas principales}
+
+\textbf{Después del mensaje.} Es el contraste más directo con la elección actual, que el enunciado llama ``antes del mensaje'', pero tiene un problema circular.
+En LSBI el campo de tamaño forma parte del mensaje y, por lo tanto, también está sujeto a la inversión. Para decodificar el tamaño hace falta conocer las banderas, y para ubicar las
+banderas después del mensaje hace falta conocer el tamaño. Se sale del círculo de dos maneras: guardando el tamaño sin invertir en un lugar fijo (por ejemplo, tratando los primeros 4 bytes del
+mensaje como una excepción a la inversión), o poniendo el registro en un desplazamiento que no depende del largo. En el primer caso el receptor lee el tamaño, calcula dónde terminan los datos y
+lee las banderas; en el segundo se vuelve a un lugar fijo, como en la alternativa 3.
+
+\textbf{En los bytes rojos.} Es la opción con mejor relación costo-beneficio dentro del esquema de Majeed y Sulaiman: los bytes rojos no llevan mensaje, de modo que las banderas no le
+quitan capacidad a verde ni a azul, y los grupos no se alteran, porque los bits 1 y 2 siguen iguales. Tiene la desventaja de romper el rasgo distintivo del método, que deja el canal
+rojo intacto; aun así, son cuatro bytes de más de trescientos mil, y la huella estadística del canal es despreciable. La elección actual ya es casi esta: tres de las cuatro banderas van en
+verde y azul, y sólo una en rojo.
+
+\textbf{Campos reservados del encabezado.} Guardar las banderas en \texttt{bfReserved1} y \texttt{bfReserved2} no gasta ningún byte de píxel y deja intacto el bloque de datos, pero la
+especificación del formato~\cite{microsoftbmp} los reserva y los define en cero. Un valor distinto es una señal obvia para cualquiera que revise el encabezado, y los programas que reescriben el
+archivo suelen ponerlos a cero, con lo que el registro se perdería sin aviso. Además, este programa no examina esos campos al leer, así que habría que agregar su lectura y escritura explícitas. Es una
+opción razonable sólo si se controla todo el recorrido del archivo.
+
+\textbf{Posiciones derivadas de la clave.} Si las cuatro posiciones salen de la contraseña, un atacante que no la conoce debe además localizar las banderas. Es la alternativa que más se acerca a
+un secreto real, porque la ubicación dependería de una clave y no del método. Su límite es que LSBI puede usarse sin cifrado, y entonces no hay contraseña; y que hay que evitar que las posiciones caigan
+sobre bytes que llevan mensaje.
+
+\textbf{Sin registro.} El receptor puede no necesitar ninguna bandera. Como sólo hay 16 combinaciones posibles de las cuatro banderas, puede decodificar el flujo con cada una y conservar la que produce un encuadre
+válido: un tamaño dentro de la capacidad, una extensión que empieza con un punto y termina en un byte nulo y, si el mensaje está cifrado, un relleno PKCS5 correcto al descifrar. Un flujo mal decodificado casi
+nunca pasa esas comprobaciones. El costo es de hasta 16 decodificaciones y una probabilidad pequeña pero no nula de ambigüedad si dos combinaciones dan un encuadre válido; en cambio no gasta capacidad, no deja marca alguna en la imagen
+y elimina el problema de dónde poner el registro.
+
+\textbf{Redundancia y mapas por bloques.} Repetir las banderas y decidir por mayoría sólo compensa daños en el archivo estego, que LSB no resiste de todos modos. Un mapa por bloques, en cambio, cambia el rendimiento del método:
+al contar por tramos, cada tramo decide sus inversiones con su propia estadística local y la ganancia total esperada crece con la cantidad de tramos, pero cada tramo paga cuatro bytes de banderas. Habría que medir el punto de equilibrio para cada tamaño de tramo.
+
+\subsection{Preferencia}
+
+Si pudiéramos elegir libremente, consideramos que la mejor opción es no guardar el registro, porque no cuesta capacidad, no deja rastro en la imagen y no crea ninguna posición previsible, a cambio de una
+decodificación más lenta y de una ambigüedad muy improbable que se detecta comprobando el encuadre. Como alternativa que sí guarda algo, elegiríamos los cuatro bytes rojos, por no gastar capacidad de verde ni de azul.
+Ninguna de las dos produce archivos que el programa de la cátedra pueda extraer, porque éste espera las banderas donde manda la consigna. Por eso la implementación sigue lo que la consigna especifica, y las alternativas
+quedan como un análisis de diseño.

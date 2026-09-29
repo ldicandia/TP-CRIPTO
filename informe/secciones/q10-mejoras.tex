@@ -1,0 +1,75 @@
+% Cuestión X. Mejoras y extensiones futuras de stegobmp (todas son propuestas: ninguna está implementada).
+
+Todo lo que sigue es una propuesta. Ninguna de estas mejoras está implementada en \texttt{stegobmp}: el programa entregado sigue al pie de la letra el formato de la
+cátedra~\cite{catedra2026}, porque su criterio de aceptación es extraer los archivos de la cátedra y producir archivos que la cátedra pueda extraer. Por eso, para cada
+propuesta se indica si rompería la compatibilidad byte a byte con ese formato. Cuando lo rompe, la única forma honesta de incorporarla sería como un modo opcional, con su propia
+opción de línea de comandos, dejando intacto el comportamiento por omisión.
+
+La lista está ordenada por la prioridad que le daría el autor: primero lo que corrige debilidades reales de seguridad, después lo que mejora la indetectabilidad, después lo que
+amplía el alcance del programa y, al final, lo que mejora el proceso de desarrollo. Las debilidades de las primeras propuestas no son defectos de implementación sino
+consecuencias de decisiones fijadas por la consigna (sal fija, modo ECB disponible, ausencia de código de autenticación), registradas como tales en \texttt{docs/CRYPTO-NOTES.md}.
+
+\begin{enumerate}
+  \item \textbf{Cifrado autenticado.} \emph{Motivación:} hoy no hay ningún código de autenticación. Una contraseña equivocada se detecta sólo porque el relleno PKCS5 (modos ECB y CBC)
+  o el encuadre del mensaje resultan inválidos, y eso deja una probabilidad pequeña pero no nula de aceptar una contraseña incorrecta y entregar basura; además, cualquiera puede modificar bits del
+  archivo estego en un modo de flujo (CFB, OFB) y el receptor no lo notará. \emph{Boceto:} cifrar con AES en modo GCM~\cite{nist80038d} y guardar la etiqueta de autenticación junto al texto cifrado, o
+  bien cifrar y luego calcular un HMAC con una clave derivada por separado (\emph{encrypt-then-MAC}). En ambos casos una contraseña equivocada o un archivo alterado se rechazan siempre. \emph{Costo:} 16 a 32 bytes más
+  de carga útil y una segunda derivación de clave. \emph{Compatibilidad:} rompe el formato de la cátedra, que no tiene lugar para la etiqueta; sería un modo opcional (por ejemplo un valor
+  nuevo de \texttt{-m}).
+
+  \item \textbf{Sal aleatoria y una derivación de clave más costosa.} \emph{Motivación:} la sal de ocho bytes en cero y las 10\,000 iteraciones de PBKDF2~\cite{rfc8018} hacen que dos mensajes con
+  la misma contraseña usen la misma clave y el mismo vector de inicialización, y permiten ataques de diccionario con tablas precalculadas; 10\,000 iteraciones es poco frente a lo que hoy
+  se recomienda~\cite{nist800132}. \emph{Boceto:} generar una sal aleatoria por mensaje y guardarla junto a la carga (por ejemplo, 16 bytes antes del tamaño cifrado), subir mucho el número de iteraciones o
+  reemplazar PBKDF2 por Argon2~\cite{rfc9106}, que además exige memoria. \emph{Costo:} 16 bytes de capacidad, tiempo de cómputo por ejecución y, para Argon2, una dependencia que no está en la biblioteca
+  \texttt{libcrypto} de todas las versiones de OpenSSL. \emph{Compatibilidad:} rompe el formato de la cátedra (que fija la sal y el número de iteraciones); modo opcional.
+
+  \item \textbf{Leer la contraseña sin dejarla en la línea de comandos.} \emph{Motivación:} con \texttt{-pass} la contraseña queda visible en la lista de procesos y en el historial del intérprete
+  de comandos, algo que ya advierte el README. \emph{Boceto:} si \texttt{-pass} se da sin valor (o con una opción aparte), pedir la contraseña en la terminal con el eco desactivado, o leerla de un archivo o de una
+  variable de entorno. \emph{Costo:} código para manejar la terminal, que difiere entre plataformas. \emph{Compatibilidad:} no afecta el formato de los archivos, pero cambia la sintaxis de la línea de comandos que la
+  consigna exige, así que debería ser una opción adicional y no reemplazar a \texttt{-pass}.
+
+  \item \textbf{Orden de inserción que depende de la clave.} \emph{Motivación:} hoy los bits se escriben siempre de forma secuencial desde el primer byte del bloque de píxeles, de modo que quien conozca el método
+  sabe dónde buscar; esta regularidad es la que aprovechan los ataques estadísticos sobre el prefijo de la imagen. \emph{Boceto:} derivar de la contraseña un generador pseudoaleatorio que elija las
+  posiciones, siguiendo la idea de esteganografía con clave de Sharp~\cite{sharp2001}, y repartir así el mensaje por toda la imagen. \emph{Costo:} el mensaje corto ya no deja un rastro localizado, pero se pierde la lectura
+  secuencial (más lento) y hace falta una contraseña incluso sin cifrado. \emph{Compatibilidad:} rompe el formato; modo opcional.
+
+  \item \textbf{Emparejamiento LSB (\emph{LSB matching}, $\pm 1$) en lugar de reemplazo.} \emph{Motivación:} el reemplazo de LSB iguala los contadores de cada par de valores $(2k, 2k+1)$, lo que el ataque de
+  $\chi^2$ de Westfeld y Pfitzmann~\cite{westfeld2000} y el análisis RS~\cite{fridrich2001} detectan (lo medimos en las Cuestiones II y VII). \emph{Boceto:} cuando el LSB del byte no coincide con el bit
+  del mensaje, sumar o restar uno al azar en lugar de forzar el bit~\cite{sharp2001}; el receptor sigue leyendo el LSB. \emph{Costo:} hay que cuidar los extremos (0 y 255) y el cambio puede tocar bits
+  superiores; aun así se resiste mejor a esos dos ataques concretos, no a todos. \emph{Compatibilidad:} el archivo estego resultante se extrae con el programa actual (el LSB es el mismo), pero no coincide
+  byte a byte con el que produciría la cátedra, y la extracción de archivos de la cátedra no cambia.
+
+  \item \textbf{Inserción adaptativa.} \emph{Motivación:} modificar por igual todas las regiones deja huellas en las zonas lisas, donde el ruido natural es bajo~\cite{fridrich2009}. \emph{Boceto:} calcular un
+  mapa de textura (por ejemplo, la variación local de los píxeles vecinos que no se modifican) y usar de preferencia las zonas ruidosas, además de limitar la carga a una fracción de la capacidad. \emph{Costo:} el
+  receptor debe poder reconstruir el mismo mapa, lo que obliga a que el criterio dependa sólo de bits que la inserción no toque; menor capacidad efectiva. \emph{Compatibilidad:} rompe el formato; modo opcional.
+
+  \item \textbf{Modo de análisis dentro del programa.} \emph{Motivación:} la consigna (sección 3) espera que se pueda también estegoanalizar un archivo, pero \texttt{stegobmp} sólo oculta y extrae; el análisis lo
+  hacen scripts aparte del repositorio. \emph{Boceto:} agregar opciones como \texttt{-analyze} y \texttt{-capacity} que reutilicen las ideas de \texttt{tools/bmpdiff.py} (diferencias entre portador y estego),
+  \texttt{tools/lsbstats.py} (estadísticos de LSB y $\chi^2$ por canal) y \texttt{tools/sigsearch.py} (búsqueda de firmas de archivos conocidos en el bloque de píxeles y en los datos agregados). \emph{Costo:} código nuevo en C
+  y más superficie que probar. \emph{Compatibilidad:} no afecta el formato; sólo agrega opciones.
+
+  \item \textbf{Más portadores.} \emph{Motivación:} hoy se aceptan sólo BMP de versión 3 con 24 bits y sin compresión (con alturas positivas o negativas); el resto se rechaza con un mensaje. \emph{Boceto:} admitir
+  encabezados V4 y V5, píxeles de 32 bits (saltando el canal alfa) y formatos sin pérdida como PNG, previa descompresión con una biblioteca. \emph{Costo:} más código de análisis del formato (con más
+  riesgo de errores con archivos hostiles) y una dependencia nueva para PNG, que no se puede asumir presente en pampero. \emph{Compatibilidad:} no afecta a los BMP de 24 bits.
+
+  \item \textbf{Comprimir antes de cifrar.} \emph{Motivación:} caben archivos más grandes, y un mensaje comprimido tiene mayor entropía, que se parece más al ruido de la imagen. \emph{Boceto:} comprimir con
+  DEFLATE antes de cifrar y marcar el hecho en el encabezado; se debe hacer antes de cifrar, porque un texto cifrado ya no se comprime. \emph{Costo:} una biblioteca de compresión y un indicador que hoy no existe en el
+  encuadre. \emph{Compatibilidad:} rompe el formato; modo opcional.
+
+  \item \textbf{Variantes de LSBI.} \emph{Motivación:} la \hyperref[sec:cuestion-vii]{Cuestión VII} muestra que la ganancia de LSBI es pequeña. \emph{Boceto:} grupos de patrones más finos (tres bits), banderas por bloque de
+  imagen (véanse las alternativas de la \hyperref[sec:cuestion-viii]{Cuestión VIII}), banderas también en el canal rojo, y la misma idea de inversión aplicada a LSB4. \emph{Costo:} más banderas y más
+  capacidad consumida, para una ganancia que habría que medir con las herramientas del repositorio. \emph{Compatibilidad:} rompe el formato de LSBI de la cátedra; modo opcional.
+
+  \item \textbf{Control de integridad para mensajes sin cifrar.} \emph{Motivación:} extraer con un método equivocado (por ejemplo \texttt{-steg LSB1} sobre un archivo LSB4) sin contraseña puede producir un archivo
+  sin sentido en lugar de un error, porque el único control es que el tamaño sea posible y que el encuadre de la extensión sea válido. \emph{Boceto:} guardar un CRC de 32 bits del contenido al final del mensaje y
+  comprobarlo al extraer. \emph{Costo:} 4 bytes. \emph{Compatibilidad:} rompe el formato de la cátedra; modo opcional.
+
+  \item \textbf{Integración continua.} \emph{Motivación:} el comportamiento se verificó a mano en Ubuntu 24.04 (WSL2) y en pampero, pero no en la Ubuntu 22.04.3 que nombra la consigna, y las versiones de OpenSSL
+  varían (3.0.13 y 3.6.3 en los entornos probados). \emph{Boceto:} un flujo automático que compile y ejecute \texttt{make test}, \texttt{make test-tools} y la compilación limpia del README en Ubuntu 22.04, con
+  las versiones de OpenSSL de pampero. \emph{Costo:} configuración y mantenimiento del flujo. \emph{Compatibilidad:} no afecta al programa.
+\end{enumerate}
+
+Las tres primeras que haría el autor serían la 1, la 2 y la 7. El cifrado autenticado con sal aleatoria cierra las dos debilidades de seguridad reales del formato actual, la aceptación de contraseñas equivocadas y la
+falta de detección de alteraciones, con un costo de unos pocos bytes. El modo de análisis integrado responde a un pedido explícito de la consigna que hoy queda fuera del programa, y no toca el formato. La
+propuesta 5, el emparejamiento LSB, la seguiría de cerca porque es la única que mejora la indetectabilidad sin cambiar cómo se extrae. Las demás dependen de decidir primero cuánta compatibilidad con la cátedra se
+está dispuesto a sacrificar.

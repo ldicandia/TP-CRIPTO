@@ -1,0 +1,101 @@
+% Cuestión VII. Toda cifra medida sale de generado/ (\dato o tablas \input); no escribir cifras a mano.
+
+\subsection{El mecanismo}
+
+LSB común reemplaza el bit menos significativo de cada byte que usa por un bit del mensaje. Si los bits del
+mensaje y los bits bajos del portador no guardan relación, cada byte usado cambia con probabilidad un medio, de modo que
+se modifica alrededor de la mitad de los bytes que llevan mensaje. Majeed y Sulaiman~\cite{majeed2015} aprovechan una propiedad
+que el propio documento no enuncia: LSB sólo toca el bit 0 de cada byte, así que los bits 1 y 2 son idénticos en el
+portador y en el archivo estego. Con esos dos bits se arman cuatro grupos (patrones \texttt{00}, \texttt{01}, \texttt{10} y \texttt{11}) que el emisor
+y el receptor calculan de la misma manera, sin necesidad de intercambiar nada.
+
+Para cada grupo, el emisor cuenta cuántos de sus bytes con mensaje cambiarían con LSB común (sea $c$) y cuántos quedarían
+igual ($n-c$, con $n$ el total del grupo). Si cambiarían más de los que no ($c > n-c$), en ese grupo escribe el
+complemento de los bits del mensaje, de modo que ahora cambian justo los $n-c$ bytes que antes no cambiaban, y deja la bandera
+del grupo en uno. El receptor lee las cuatro banderas, recalcula el patrón de cada byte y aplica la bandera de su grupo para
+recuperar el bit original. Por grupo, la cantidad final de bytes modificados es
+\[
+  \min(c,\; n-c) \le \min\!\left(c,\; \tfrac{n}{2}\right),
+\]
+donde un empate no se invierte y deja $c = n-c$. Sumando los cuatro grupos, LSBI nunca modifica más bytes con mensaje que LSB común sobre las
+mismas posiciones, y a lo sumo modifica la mitad de los bytes de cada grupo. El costo es de cuatro bytes de banderas, escritos con
+LSB1, que pueden agregar como mucho cuatro cambios. La ganancia en cada grupo es $|c - n/2|$, es decir, cuánto se aparta el conteo del
+punto medio: cuanto más desbalanceado sea el grupo, más se gana.
+
+\subsection{Evidencia medida}
+
+El cuadro~\ref{tab:q7-inversion} compara, sobre los mismos bytes, los cambios sin inversión (lo que haría LSB común en esas posiciones)
+con los cambios con inversión, para cinco cargas: el PNG de la cátedra, el mensaje de prueba del paper, datos aleatorios y los
+dos vectores cifrados de la cátedra. La última columna cuenta los cambios que producen las banderas mismas.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\resizebox{\linewidth}{!}{\input{generado/q7-tabla-inversion}}
+\caption{Bytes con mensaje modificados sin y con inversión de patrones, para cinco cargas ocultadas en \texttt{lado.bmp} con LSBI. La reducción se calcula sobre los bytes con mensaje; las banderas se cuentan aparte}
+\label{tab:q7-inversion}
+\end{table}
+
+Con el PNG, la inversión baja los cambios de \dato{inv-png-sin} a \dato{inv-png-con}, una reducción del \dato{inv-png-reduccion}\,\%, y las
+banderas no agregan ningún cambio. El cuadro~\ref{tab:q7-patrones} muestra de dónde sale esa ganancia.
+
+\begin{table}[htbp]
+\centering
+\small
+\input{generado/q7-tabla-patrones}
+\caption{Conteo por patrón al ocultar el PNG de la cátedra con LSBI: bytes que cambiarían, bytes que quedarían igual, si el grupo se invierte y cambios que quedan después}
+\label{tab:q7-patrones}
+\end{table}
+
+Los cuatro grupos se invierten, pero en tres de ellos la diferencia entre cambiados y sin cambio es mínima, y casi toda la reducción sale del
+patrón \texttt{11}, que es el más numeroso y el de mayor desequilibrio. La explicación es una propiedad del portador y no del método: en
+\texttt{lado.bmp} hay muchas zonas saturadas, cuyos bytes valen 255, tienen el patrón \texttt{11} y el bit menos significativo en uno; en
+ese grupo los bits bajos del portador son, por lo tanto, mayoritariamente unos (un conteo auxiliar sobre \texttt{lado.bmp} lo confirma), mientras que el PNG,
+un archivo comprimido, tiene menos unos que ceros; así, en ese grupo cambian más bytes de los que quedan. Es coherente con la proporción global de unos del canal
+azul del portador (\dato{est-portador-B-lsb}, mayor que un medio). En otras palabras, LSBI gana cuando el portador y el mensaje tienen estadísticas distintas dentro de algún
+patrón, y esa diferencia es propia del par portador-mensaje.
+
+Los casos cifrados y el aleatorio confirman esto. Con datos aleatorios y con los dos vectores cifrados de la cátedra (AES-256 en OFB y 3DES en
+CFB) la reducción es de \dato{inv-azar-reduccion}\,\%, \dato{inv-aes256ofb-reduccion}\,\% y \dato{inv-descfb-reduccion}\,\%: mínima. Un mensaje cifrado se comporta
+como una secuencia de bits equiprobables e independientes del portador. En cada grupo el conteo $c$ es entonces una variable
+binomial de media $n/2$, y la ganancia esperada es su desviación absoluta media, aproximadamente $\sqrt{n/(2\pi)}$ por grupo. Para la carga aleatoria eso
+suma unos \dato{inv-azar-teorico} cambios, el \dato{inv-azar-teoricopct}\,\% de los bytes con mensaje. Lo medido queda por debajo pero
+del mismo orden, con la dispersión propia de una única muestra. La ganancia proviene del azar del muestreo y no de una regularidad que el método
+aproveche; además, con las banderas, la ganancia neta baja todavía más (hasta \dato{inv-aes256ofb-banderas} cambios en banderas en los vectores cifrados).
+
+La comparación con LSB1 sobre el mismo PNG (\hyperref[sec:cuestion-ii]{Cuestión II}) va en el mismo sentido. LSB1 usó \dato{png-LSB1-usados} bytes y cambió
+\dato{png-LSB1-cambiados}, una tasa del \dato{png-LSB1-tasa}\,\%; LSBI usó \dato{png-LSBI-usados} bytes (contando las banderas) y cambió \dato{png-LSBI-cambiados}, una tasa
+del \dato{png-LSBI-tasa}\,\%. El PSNR pasa de \dato{png-LSB1-psnr} a \dato{png-LSBI-psnr}\,dB: una mejora de una fracción de decibel, coherente con una
+reducción de cambios de menos del diez por ciento. Con el mensaje corto del paper los cambios pasan de \dato{paper-LSB1-cambiados} a \dato{paper-LSBI-cambiados}, y el PSNR de
+\dato{paper-LSB1-psnr} a \dato{paper-LSBI-psnr}\,dB, pero en ese régimen ambas cifras son muy altas y no dicen mucho sobre la calidad del método. La reducción relativa
+del texto del paper es la mayor de las cinco cargas (\dato{inv-paper-reduccion}\,\%), y es esperable: un texto ASCII tiene siempre en cero el bit más significativo de cada carácter y sus
+bits están lejos de ser equiprobables. Pero se calcula sobre \dato{inv-paper-n} bytes solamente y con \dato{inv-paper-banderas} cambios de banderas que hay que sumar aparte, así que la
+ganancia neta es algo menor.
+
+\subsection{¿Es realmente una mejora?}
+
+En sentido estricto y medible, sí: LSBI no modifica más bytes con mensaje que LSB común sobre las mismas posiciones (a lo sumo cuatro cambios más por las banderas),
+y cuando el mensaje tiene una estadística distinta de la del portador modifica menos, con un PSNR algo mayor. El precio y los límites de esa mejora son estos.
+
+\textbf{La capacidad baja.} Como los bits de mensaje sólo van a los bytes verde y azul, y además hay que reservar las banderas, el mismo
+\texttt{lado.bmp} admite \dato{cap-LSBI} bytes con LSBI contra \dato{cap-LSB1} con LSB1. El documento dice tener en cuenta la capacidad (p.~343), pero no la mide.
+
+\textbf{La ganancia depende del mensaje.} Justamente en el caso que más importa para este programa, un mensaje cifrado, la reducción es casi nula
+(cuadro~\ref{tab:q7-inversion}), y el algoritmo es más complejo que LSB común: dos pasadas y un conteo por patrón.
+
+\textbf{No vuelve indetectable el mensaje.} El estadístico $\chi^2$ de pares de valores de Westfeld y Pfitzmann~\cite{westfeld2000}, medido en el
+cuadro~\ref{tab:q2-estadisticas}, baja en el canal azul de \dato{est-portador-B-chi} a \dato{est-png-LSBI-B-chi} y en el verde de \dato{est-portador-G-chi} a
+\dato{est-png-LSBI-G-chi}: LSBI sigue siendo un reemplazo de bits menos significativos, y un mensaje casi aleatorio iguala los conteos de cada par de valores
+haya inversión o no. El análisis RS de Fridrich, Goljan y Du~\cite{fridrich2001} apunta a la misma asimetría del reemplazo de LSB; no lo aplicamos, y no pretendemos
+que LSBI lo evada ni que lo detecte peor. El canal rojo, además, queda con el mismo estadístico del portador (\dato{est-png-LSBI-R-chi}), así que la diferencia entre
+canales es una marca por sí misma, visible en la figura~\ref{fig:q2-mapas}.
+
+\textbf{La seguridad adicional es oscuridad.} Que el rojo ``actúe como ruido'' sólo protege mientras el método sea secreto; quien lo conoce sabe qué canales
+mirar, contra el principio de Kerckhoffs~\cite{kerckhoffs1883}. El mensaje, además, empieza siempre en el mismo byte y se recorre en orden secuencial, con lo que la extracción es
+trivial para cualquiera que conozca el método. La inversión de patrones no agrega ninguna clave.
+
+En conclusión, consideramos que LSBI es una mejora real pero estrecha. Reduce la cantidad de bytes modificados, y eleva algo el PSNR, cuando la estadística
+del mensaje difiere de la del portador dentro de algún patrón. A cambio pierde un tercio de la capacidad más cuatro bytes, y su ventaja se diluye cuando el mensaje se cifra, que es la práctica recomendable. No mejora la resistencia
+al estegoanálisis estadístico ni justifica, con lo medido, decir que el mensaje pasa inadvertido: los rastros estadísticos de los canales verde y azul, y la asimetría con el rojo,
+siguen presentes.

@@ -1,0 +1,230 @@
+% Cuestión I. Crítica del documento de Majeed y Sulaiman. Cada error atribuido al documento se contrastó con el
+% texto extraído del PDF (mutool) y con una imagen de la página; las páginas son las de la revista (342 a 348).
+% Las citas textuales del documento quedan en inglés y entre comillas; el resto es texto propio.
+
+El documento~\cite{majeed2015} propone una variante de LSB para imágenes de 24 bits. Primero reemplaza los bits menos
+significativos con los bits del mensaje, como en LSB común. Después clasifica los bytes de color según el patrón que
+forman el segundo y el tercer bit contando desde el menos significativo (``the 2nd last and 3rd last bit'', p.~344),
+cuenta en cada patrón cuántos bytes cambiaron y cuántos no, y si cambiaron más de los que no, invierte el bit
+menos significativo de los bytes de ese patrón. Sólo se usan los canales verde y azul (p.~342) y el estado de cada
+patrón se anota en un registro cuyo lugar el documento nunca define (``specific location'', p.~344). La consigna
+de la cátedra~\cite{catedra2026} completa ese hueco: fija que el registro son cuatro banderas guardadas con LSB1 en los
+primeros cuatro bytes del bloque de píxeles, fija el orden físico de los bytes (azul, verde, rojo) y el tamaño en big endian.
+Por eso conviene separar lo que dice el documento de lo que agrega la consigna, y este análisis lo hace en cada punto.
+
+Cada error o contradicción que se le atribuye al documento se releyó en el texto del PDF o en una imagen de la página,
+y va con su página. Los juicios que son una valoración propia, y no un error verificable, se formulan como tales
+(``consideramos'', ``a nuestro juicio'').
+
+\subsection{Organización formal del documento}
+
+El documento tiene ocho secciones: introducción, la técnica LSB estándar, el modelo de color RGB, otra vez LSB, la
+técnica propuesta, el algoritmo propuesto, los resultados y una discusión con conclusión. La primera falla de
+organización se ve en la página 343. La introducción termina con la frase ``This paper is organized as follows:''
+y el encabezado de la Sección 2 aparece de inmediato, de modo que el esquema que la frase anuncia nunca se escribe.
+Consideramos además que la introducción dedica buena parte de su extensión a la etimología de ``steganography'' y
+de ``cryptography'' (pp.~342--343) y que la propuesta recién se enuncia en las últimas líneas de la página 343, sin
+plantear antes el problema concreto que se quiere resolver.
+
+Hay material repetido. La Sección 2 (p.~343) describe la técnica LSB estándar y sus debilidades, y la Sección 4
+(p.~344) vuelve a describirla con un ejemplo y un pseudocódigo. La Sección 3 (p.~343) presenta el cubo RGB y, a nuestro
+juicio, no aporta nada al método, porque nunca se vuelve a usar; además contiene dos errores de notación que se
+detallan en el cuadro~\ref{tab:q1-errores}. El método propuesto se describe dos veces con distinto nivel de detalle:
+como lista de seis pasos con un ejemplo en la Sección 5 (pp.~344--345) y como pseudocódigo en la Sección 6
+(pp.~345--346). Las dos versiones no dicen lo mismo. La restricción a los canales verde y azul aparece en el
+pseudocódigo pero no en la lista de pasos, donde recién aparece en el último párrafo de la Sección 5, después del
+ejemplo (p.~345). El lector debe reconciliar las dos versiones por su cuenta.
+
+Faltan partes que este tipo de artículo suele tener. No hay una sección de trabajos relacionados, aunque el cuadro 2
+de la página 347 compara contra tres trabajos ([9], [10] y [11]) que en el texto sólo se mencionan de pasada, para decir que
+las imágenes de prueba son ``similar to previously use'' en ellos (p.~346). No hay algoritmo de extracción para el
+método propuesto: la Sección 6 se titula ``The proposed bit inversion algorithm'' y contiene únicamente la inserción,
+mientras que la recuperación se cuenta en un párrafo en prosa de la página 345 (``So in de-steganography, \dots''). Y no hay
+una sección de limitaciones.
+
+La parte experimental tiene problemas propios. La Sección 7 anuncia que ``we use three true RGB colour images
+(Lena.jpg , Baboon.jpg , Peppers.jpg)'' (p.~346), pero la figura 2 de la misma página muestra seis imágenes y el
+cuadro 1 (p.~347) informa seis valores de PSNR. Los histogramas de las figuras 3 a 5 (pp.~346--347) no tienen títulos de ejes
+ni indican de qué imagen o canal son, y la comparación que se hace de ellos es puramente visual (``almost similar'',
+p.~347). Las afirmaciones centrales no tienen experimento que las respalde. El resumen dice que ``less numbers of pixels
+are modified compared with the standard LSB method'' (p.~342), pero ninguna tabla cuenta píxeles modificados ni
+informa el PSNR de LSB común sobre las mismas imágenes; el cuadro 1 sólo da el PSNR del método propuesto. La
+Sección 2 afirma que ``Steg-analysis is performed on the standard LSB stego-image'' (p.~343) y la conclusión habla
+de ``undetectability'' (p.~347), pero en ningún lugar del documento hay un análisis de detectabilidad ni una medición de
+capacidad. La conclusión repite casi textualmente los dos ``niveles de seguridad'' del resumen y cierra sin
+mencionar ninguna limitación.
+
+La lista de referencias (p.~348) también es descuidada. El encabezado dice ``REFRENCES'', la entrada [7] (``A survey of
+steganography technique'') no tiene medio de publicación ni año, la entrada [12] está escrita en minúsculas y las entradas mezclan
+formatos. La entrada [8] se usa para dos afirmaciones que no tienen relación entre sí, la cifra de los conos del ojo (p.~345) y la
+definición del PSNR (p.~347). Además, [8] es un trabajo de Rawat y Bhandari sobre esteganografía, no un trabajo de Hecht, que es el nombre con que el
+texto presenta la fuente de la primera afirmación.
+
+En conjunto, consideramos que la organización no es la de un artículo terminado. El esquema anunciado falta,
+lo repetido ocupa lugar que hace falta para lo que falta (extracción, trabajos relacionados, análisis de detección) y las
+conclusiones no siguen de los experimentos presentados.
+
+\subsection{Descripción del algoritmo}
+
+Lo que sigue separa lo que se puede reconstruir del documento de lo que queda sin definir.
+
+\textbf{Lo que se puede reconstruir.} La propiedad que hace decodificable al método es que LSB reemplaza sólo el bit 0 de
+cada byte y por lo tanto nunca toca los bits 1 y 2. El receptor puede entonces recalcular el patrón de cada byte del
+archivo estego y obtener los mismos grupos que tenía el emisor. El documento usa esa propiedad sin enunciarla: en la
+página 345 dice que en la extracción se debe ``classify the stego-image according to the four patterns'', pero nunca
+explica por qué esa clasificación coincide con la del portador. Es también la razón por la que el paso 3 de la lista
+(recalcular los patrones sobre la imagen estego, p.~344) es redundante: los patrones de la imagen estego son los del
+portador. La regla de inversión (paso 5, p.~344) tiene una garantía que el documento tampoco enuncia. Si en un patrón hay
+$n$ bytes que llevan mensaje y $c$ cambiaron, después de invertir quedan $\min(c, n-c)$ cambios, o sea a lo sumo la mitad.
+Esa es la única justificación matemática de que el método reduzca modificaciones, y el documento la reemplaza por el ejemplo de
+cuatro valores de la página 345.
+
+\textbf{Lo que queda sin definir.} El lugar, el tamaño y el formato del registro de patrones (``specific location'',
+pp.~344 y 346), y con eso su costo en capacidad, que el documento no cuenta. Cómo sabe el receptor cuánto mensaje leer, porque no hay
+campo de longitud. El orden de los bits del mensaje dentro de cada byte y el orden en que se recorren los bytes. Si un
+``pixel'' es un píxel o un byte de color: el documento usa la palabra para las dos cosas, y en la página 345 dice ``Three pixels
+that have `10' pattern (A, B, D)'' para hablar de tres valores de ocho bits. El orden de los dígitos del patrón: el ejemplo
+de la página 345 es coherente con que el bit 2 sea el dígito alto, pero no se dice. La regla de desempate
+cuando cambiaron tantos bytes como no cambiaron: el texto sólo dice ``greater than'' (paso 5, p.~344). Y qué se cuenta:
+todos los bytes del patrón, o sólo los que reciben un bit del mensaje. Esa última decisión cambia el resultado y el
+documento no la toma.
+
+El paso 4b del ejemplo (p.~345) afirma que para el patrón `01', con un solo valor (C), ``we cannot check how many pixels were
+changed and how many were not, because there is only one pixel, comparison cannot occur''. La comparación sí puede hacerse:
+C no cambió (0 cambiados y 1 sin cambio), y la regla del paso 5 dice simplemente que no se invierte. Por otra parte, el ejemplo aplica el método a
+cuatro valores sueltos, sin indicar a qué canal pertenece cada uno, así que no ilustra la omisión del canal rojo que
+el método declara.
+
+\textbf{El pseudocódigo de la Sección 6} (pp.~345--346) tiene varios problemas, que se ven mejor en la imagen de la
+página que en el texto extraído. Primero, el bucle exterior recorre caracteres (``Get char from msg'') y el interior
+``For each 2 bits'', pero la condición ``If msg bit = 1'' nunca dice cuál de los bits es. Segundo, según la sangría de la página publicada
+las tres líneas ``Replace the value in the pic'', ``stego value = value'' e ``Identify the pattern of 2nd and 3rd bits of the
+stego value'' quedan dentro de la rama Else, de modo que la rama del ``1'' no escribiría el valor en la imagen;
+consideramos que es un error de sangría y no una intención, pero el documento no permite decidirlo. Tercero, el segundo bucle
+usa ``if number of changed pixels in any pattern of pic was more than pixels that not changed in alternative pattern in the
+stego'': ``alternative pattern'' no está definido y ``any pattern'' no aclara si la condición se evalúa por patrón o para
+alguno. Cuarto, dentro de esa condición el código recorre ``each colour from green and blue'' de cada píxel e invierte el
+bit sin volver a preguntar si el byte pertenece al patrón que superó la comparación; tal como está escrito, invertiría todos los
+bytes verdes y azules. Quinto, el registro (``Store the status of pattern that inversed his pixels as a map in specific
+location'') queda, por la misma sangría, dentro de los bucles más internos, es decir que se escribiría muchas veces. Además, la
+terminología cambia de una sección a otra: se usan ``inverse'', ``inversed'' e ``inversing'' con el sentido de ``invert''
+(pp.~344--346).
+
+\textbf{Resumen y declaraciones que no coinciden con el método.} El resumen dice que el método ``starts with the last LSBs of
+both green and blue colour planes that will be replaced by the first and the second most significant bits (MSB) of the secret
+image'' (p.~342). Ninguna de las secciones 5 o 6 tiene un paso que use los bits más significativos de una imagen secreta: lo que se
+oculta es un mensaje de texto, bit a bit, en los bits menos significativos. Esa oración, a nuestro juicio, corresponde a otra versión del
+trabajo.
+
+\textbf{Argumentos de seguridad.} El documento sostiene que usar sólo verde y azul agrega un ``nivel de seguridad'' porque
+``the red colour will act as noise data'' (pp.~342, 345 y 347). Consideramos que es seguridad por oscuridad: quien conozca el método
+sabe que el rojo no lleva datos, y la protección se basa en mantener secreto el algoritmo, contrariamente al principio de
+Kerckhoffs~\cite{kerckhoffs1883}. La inversión de bits no agrega un secreto: el emisor y el receptor no comparten ninguna clave. La
+cita sobre los conos del ojo (``According to a research that was conducted by Hecht [8], 65\% of all cones of human eyes are sensitive to red, 33\% \dots
+green, and only near about 2\,\% \dots blue'', p.~345) es un argumento perceptivo, sobre qué canal conviene no modificar, pero el párrafo lo
+presenta como una mejora de ``the security''. Además, a nuestro juicio, la cifra describe la proporción de conos de cada tipo y no la
+sensibilidad de la imagen al ruido, y la atribución a Hecht no coincide con la entrada [8] (p.~348), como se dijo antes.
+
+\textbf{Capacidad.} La Sección 2 dice que la capacidad de LSB estándar es baja porque ``only one bit per pixel is used to hide the
+data'' (p.~343), pero unas líneas antes el propio documento explica que cada píxel tiene tres componentes de color (pp.~342--343), de modo que LSB estándar oculta tres bits por
+píxel, uno por byte de color. Sólo tiene sentido si ``pixel'' significa ``byte'', que es justamente la ambigüedad de vocabulario ya señalada.
+La misma sección afirma que el trabajo toma en cuenta ``to increase the capacity'' y que ``any security level improvement must not
+affect both capacity and the quality of stego image'' (p.~343). Sin embargo, si sólo se usan dos de los tres canales, la
+capacidad baja a dos tercios. Con la implementación de este trabajo, el mismo portador \texttt{lado.bmp} admite \dato{cap-LSB1}\,bytes con LSB1 y
+\dato{cap-LSBI}\,bytes con LSBI, porque además del canal rojo hay que descontar el registro de cuatro banderas. El documento
+nunca mide ni discute esa pérdida.
+
+\textbf{Robustez.} La Sección 2 define la robustez como ``the difficulty of any unauthorized party to retrieve the secret data'' (p.~343),
+y la palabra vuelve como palabra clave (p.~342). En la literatura de esteganografía~\cite{fridrich2009} lo que se llama robustez es la
+supervivencia del mensaje ante modificaciones de la imagen estego (compresión, recorte, ruido) y lo que se define como el documento
+es más bien seguridad o indetectabilidad. Consideramos que la elección del término impide entender qué propiedad dice mejorar.
+
+\textbf{Evaluación con PSNR.} El cuadro 2 (p.~347) compara el PSNR del método contra los de tres trabajos ([9] a [11]) sin decir el tamaño de
+las imágenes, la cantidad de datos ocultos en cada caso ni con qué mensaje se obtuvieron esas cifras. El único mensaje del documento tiene 226
+caracteres (p.~346). Como el PSNR depende sobre todo de cuántos bytes se modifican, comparar valores obtenidos con cargas distintas no mide
+la calidad del método. Nuestras mediciones lo muestran: al ocultar el mismo mensaje del documento en \texttt{lado.bmp}, LSB1, LSB4 y LSBI dan
+\dato{paper-LSB1-psnr}, \dato{paper-LSB4-psnr} y \dato{paper-LSBI-psnr}\,dB, mientras que con la imagen PNG de la cátedra el mismo LSBI baja a
+\dato{png-LSBI-psnr}\,dB por la sola diferencia de la carga (véase la \hyperref[sec:cuestion-ii]{Cuestión II}). Por último, los portadores se nombran
+con extensión \texttt{.jpg}, y el documento no aclara en qué formato se guardaron las imágenes estego; si se recomprimieran con pérdida, el
+mensaje oculto en los bits menos significativos no sobreviviría.
+
+\textbf{Lo que el documento deja abierto y lo que decidieron los vectores.} Al reproducir byte a byte el archivo de la cátedra
+\texttt{Ejemplo/ladoLSBI.bmp} con esta implementación aparecieron todas las ambigüedades anteriores, una por una. El cuadro~\ref{tab:q1-vector}
+resume, para cada aspecto, qué dice el documento, qué agrega la consigna y qué resolvieron los vectores de la cátedra (los tres archivos LSBI de \texttt{Ejemplo/}). En seis
+de los diez aspectos un vector de la cátedra descarta las lecturas alternativas; en los otros cuatro (el orden de los dígitos del patrón, el desempate,
+la capacidad y el relleno de filas) los vectores no permiten decidir y la implementación adopta la lectura literal del documento y de la consigna.
+Los detalles de cada prueba están en la \hyperref[sec:cuestion-ix]{Cuestión IX}.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+Aspecto & Paper & Consigna & Vectores de la cátedra \\
+\midrule
+Lugar y orden de las banderas & ``specific location'' (pp.~344, 346), sin definir & Cuatro banderas en los primeros 4 bytes, LSB1 normal, tres canales, antes del mensaje; orden 00, 01, 10, 11 & Decidido: el orden inverso da un tamaño absurdo y encuadre inválido; el orden de la consigna reproduce el archivo \\
+Canales que llevan mensaje & Sólo verde y azul (pp.~342, 345); el ejemplo de la p.~345 no distingue canales & Orden físico B, G, R; no dice que el rojo se omite & Decidido: usar el rojo o contar su posición desde el byte 4 no reproduce el archivo; el rojo se omite contando desde el inicio del bloque \\
+Inicio del mensaje y orden de bits & Sin definir (``index $j_i$'', p.~344) & Formato tamaño, datos, extensión; las banderas suman 4 bytes & Decidido: el mensaje empieza en el byte 4 del bloque y va del bit más significativo al menos significativo \\
+Orden de los dígitos del patrón & ``2nd last and 3rd last bit'' (p.~344); el ejemplo de la p.~345 sugiere bit 2 como dígito alto & Lista los patrones 00, 01, 10, 11 sin definir los dígitos & Sin decidir: en los tres vectores las banderas de 01 y 10 son iguales, y cambiar el orden da los mismos bytes \\
+Qué bytes se cuentan & ``pixels'' cambiados y no cambiados (pp.~344--345), sin precisar & Nada & Decidido: sólo los bytes verdes y azules que reciben un bit del mensaje; contar el rojo no reproduce el archivo \\
+Desempate & Sólo ``greater than'' (p.~344) & Nada & Sin decidir: ningún vector tiene empates; se invierte sólo si cambiaron más que los que no \\
+Alcance de la inversión & ``Inverse the LSB bits'' (p.~344) & Nada & Decidido: sólo el bit 0 de los bytes con mensaje se combina con la bandera; el resto queda intacto \\
+Capacidad & No la calcula ni la discute & 4 bits más; error con la capacidad máxima & Sin decidir: los vectores sólo prueban que 44\,895 bytes entran; la fórmula de este trabajo da \dato{cap-LSBI}\,bytes para \texttt{lado.bmp} \\
+Relleno de filas & Trata la imagen como arreglo plano & Usar el bloque de píxeles más los bytes de relleno & Sin decidir: \texttt{lado.bmp} no tiene relleno; se usa el índice plano \\
+Polaridad de las banderas & ``status of the patterns that inverse its pixel'' (p.~344), implícita & 1 indica que el patrón tuvo cambio; las banderas no se invierten & Decidido: la polaridad contraria da encuadre inválido; las banderas se guardan tal cual \\
+\bottomrule
+\end{tabularx}
+\caption{Lo que el documento deja abierto en LSBI y lo que resolvieron los vectores de la cátedra al reproducir \texttt{Ejemplo/ladoLSBI.bmp}}
+\label{tab:q1-vector}
+\end{table}
+
+\subsection{Notación: claridad, errores y contradicciones}
+
+La notación no es clara. Los errores del cuadro~\ref{tab:q1-errores} son verificables en el texto o en la imagen de la página citada; algunos
+son tipográficos y otros afectan la comprensión del método. El más grave para el lector que quiere implementar el método es la lista de
+patrones del paso 1 (p.~344), que dice ``either 00, 10, 10, or 11'': el patrón 10 aparece dos veces y falta el 01. El
+pseudocódigo de la página 345 sí lista los cuatro patrones correctamente (``00, 01, 10, or 11''), así que se trata de un error de tipeo, pero es uno
+que en un texto sobre patrones de dos bits obliga a adivinar. En el ejemplo de la página 345, el valor D aparece con siete bits
+(\texttt{1010110}) en la tabla del paso 2, mientras que el paso 1 del mismo ejemplo y las líneas siguientes lo escriben con ocho
+(\texttt{10101101}). Como el ejemplo se basa en los bits 1 y 2, la diferencia importa: leído tal cual, el valor de siete bits tendría los bits 2 y 1 en \texttt{11}, y no en \texttt{10}, que es el patrón que el ejemplo le asigna a D.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{1.2cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+Página & Texto del documento & Problema & Corrección \\
+\midrule
+p.~344 & ``either 00, 10, 10, or 11'' (paso 1) & El patrón 10 se repite y falta 01 & 00, 01, 10, 11 (como en la p.~345) \\
+p.~345 & D = \texttt{1010110} en la tabla del paso 2 & Tiene 7 bits; el paso 1 y las líneas siguientes usan \texttt{10101101} & \texttt{10101101} \\
+p.~343 & Fig.~1: ejes ``BLUE (0,1,0)'' y ``GREEN (0,0,1)'' & Verde y azul están intercambiados; rojo (1,0,0) es correcto & GREEN (0,1,0) y BLUE (0,0,1) \\
+p.~343 & ``(28)3 = 16,777,216'' & Los exponentes se perdieron; se lee 28 por 3 & $(2^8)^3 = 2^{24} = 16\,777\,216$ \\
+p.~344 & Sección 4: ``For i = 1 to Length(c), do  $S_j \leftarrow C_j$''; ``$S_{j_i} \leftarrow$ LSB($C_{j_i}$) = $m_i$'' & El índice del bucle es $i$ y el cuerpo usa $j$; ``c'' y ``C'' se mezclan; la asignación lleva una igualdad adentro & $S_j \leftarrow C_j$ para todo $j$; $\mathrm{LSB}(S_{j_i}) \leftarrow m_i$ \\
+p.~344 & Extracción: ``Input -: Secret image s''; ``Compute index $j_i$ where to store the $i$th message bit''; $m_{j_i} \leftarrow$ LSB($C_{j_i}$) & La entrada es la imagen estego, no una ``secret image''; se lee del portador $C$ cuando el texto siguiente dice que no hace falta; el índice es de lectura y el resultado va a $m_{j_i}$ & Entrada $S$; $m_i \leftarrow \mathrm{LSB}(S_{j_i})$ \\
+p.~346 & ``The following text includes 226 characters or 2881 bits'' & 226 caracteres por 8 bits son 1808 bits; 2881 no es múltiplo de 8 (ni de 7) & 226 caracteres, 1808 bits \\
+p.~347 & ``cover image C of size M $\times$ M and the stego-image S of size N $\times$ N''; MSE con $\alpha_{i,j}$ y $\beta_{i,j}$; MAX sin definir & El MSE resta píxel a píxel y suma sobre $M$ por $N$, lo que exige el mismo tamaño; el texto usa $(x,y)$ y la fórmula $(i,j)$; $C$, $S$ pasan a $\alpha$, $\beta$; MAX no se define & Ambas imágenes de $M \times N$; una sola notación; MAX = 255 \\
+pp.~346--347 & ``three true RGB colour images'' (Sección 7), pero la Fig.~2 muestra seis y el cuadro 1 informa seis PSNR & Contradicción entre el texto y sus figuras y tablas & Decir seis imágenes \\
+pp.~342, 346, 347 & Nombres: ``Babbon.jpg'' (resumen y rótulo de la Fig.~2) frente a ``Baboon.jpg''; ``Pepper.jpg'' frente a ``Peppers.jpg''; ``trees.jpg'' frente a ``tree . jpg''; ``Tiffany.jpg'' frente a ``tifanny. Jpg'' & Los nombres de las imágenes no coinciden entre resumen, figura y tablas & Un nombre por imagen \\
+pp.~345--347 & ``pixel'' para un byte de color; ``secret image'' para un mensaje de texto & Confunde la unidad de análisis y la naturaleza del mensaje (``Three pixels that have `10' pattern'', p.~345; ``the bits of the secret image'', p.~347) & Byte o componente de color; mensaje \\
+pp.~344--346 & ``inverse'', ``inversed'', ``inversing'' & Se usa ``inverse'' con el sentido de ``invert'' & ``invert'', ``inverted'' \\
+\bottomrule
+\end{tabularx}
+\caption{Errores y contradicciones de notación en el documento}
+\label{tab:q1-errores}
+\end{table}
+
+En cuanto a la claridad general, consideramos que el texto es difícil de seguir por tres razones. Usa la misma palabra (``pixel'') para tres cosas distintas: un píxel, un byte de color y una
+posición de arreglo. Alterna entre ``LSB'', ``last bit'' y ``last significant bit'' para el mismo objeto. Y presenta los ejemplos con valores
+sueltos (A, B, C, D) sin decir de qué imagen ni de qué canal provienen, de modo que el lector no puede reproducirlos en una imagen real. Además hay errores tipográficos que en un texto técnico dificultan la lectura:
+``lest significant bit'' (p.~345, dos veces en el pseudocódigo), ``massage bits'' (p.~345), ``two has changed'' (p.~345), ``In In steganography'' (p.~347), ``We would like to emphasis'' (p.~347),
+``this this proposed method'' (p.~348) y ``REFRENCES'' (p.~348). Ninguno de ellos cambia el algoritmo, pero en conjunto refuerzan la impresión de que el texto no tuvo una revisión final.
+
+\subsection{Conclusión}
+
+El documento tiene una idea correcta y aprovechable: agrupar los bytes por los dos bits que LSB no modifica y decidir por grupo si conviene invertir el bit menos significativo, de
+modo que nunca cambie más de la mitad de los bytes de cada grupo. Consideramos que la descripción no alcanza para implementarla sin decisiones propias, porque el lugar y el formato del registro, el orden de bits,
+el desempate y el alcance del conteo quedan sin definir, y la consigna sólo resuelve algunos de esos puntos. Además contiene errores de notación verificables, entre ellos la lista de patrones con un patrón repetido, un
+valor del ejemplo con siete bits, los ejes de la figura 1 intercambiados y la cuenta de bits del mensaje, y sus afirmaciones de seguridad e indetectabilidad no están respaldadas por ningún experimento del propio documento. La mejora que sí se puede medir, la
+reducción de bytes modificados, se analiza con datos propios en la \hyperref[sec:cuestion-vii]{Cuestión VII}.

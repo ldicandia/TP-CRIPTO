@@ -1,0 +1,11 @@
+\begin{tabular}{lrrrrcr}
+\toprule
+Caso & Bytes con mensaje & Sin inversión & Con inversión & Reducción (\%) & Banderas & Cambios en banderas \\
+\midrule
+PNG (sin encripción) & 359\,160 & 188\,308 & 170\,852 & 9{,}27 & \texttt{1111} & 0 \\
+Mensaje del paper & 1\,880 & 1\,044 & 832 & 20{,}31 & \texttt{0001} & 3 \\
+Datos aleatorios & 320\,072 & 160\,032 & 159\,771 & 0{,}16 & \texttt{0101} & 2 \\
+PNG aes256-ofb (cátedra) & 359\,192 & 179\,491 & 179\,329 & 0{,}09 & \texttt{0001} & 3 \\
+PNG 3des-cfb (cátedra) & 359\,192 & 179\,425 & 179\,195 & 0{,}13 & \texttt{1000} & 3 \\
+\bottomrule
+\end{tabular}
