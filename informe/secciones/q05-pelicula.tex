@@ -1,0 +1,20 @@
+% Cuestión V. El fragmento de película oculto en secreto1.bmp. INCOMPLETA: falta la contraseña que descifra el archivo.
+% Cuando se descifre, reemplazar \pendienteVideo por la respuesta (qué se ocultaba, sobre qué portador) y actualizar
+% check_informe.py (PENDIENTE y el conteo esperado).
+
+\textbf{Dónde está.} El video es lo que oculta \texttt{secreto1.bmp}, el afiche de la película \emph{El secreto de sus ojos}. \texttt{sol5.txt} lo dice: <<con algoritmo, modo y password hay un .wmv encriptado y oculto>> (listado~\ref{lst:q4-sol5}).
+Con LSB4 y sin contraseña \texttt{stegobmp} lee un campo de tamaño de \dato{an-secreto1-tam4} bytes, válido, pero lo que sigue es un texto cifrado: no termina en una extensión y se ve como datos al azar (Cuestión~III).
+
+\textbf{Lo que se sabe del cifrado.}
+\begin{itemize}
+\item Método de ocultamiento: LSB4 (campo de tamaño válido, \dato{an-secreto1-tam4} bytes, capacidad \dato{an-secreto1-cap4}).
+\item Algoritmo: \texttt{aes256}, la única opción con clave de 256 bits que ofrece el programa (\texttt{sol5.txt}).
+\item Modo: OFB, según el tablero de buscaminas (Cuestión~IV). Es consistente con que \dato{an-secreto1-tam4} no sea múltiplo del bloque de 16 bytes, ya que ECB y CBC con relleno PKCS5 siempre dan un múltiplo.
+\item Contraseña: el PDF de \texttt{avatar.bmp} dice <<\texttt{metadata}>>.
+\end{itemize}
+
+\textbf{Qué se probó.} Con \texttt{./stegobmp -extract} se probaron las 48 combinaciones de \{LSB1, LSB4, LSBI\} $\times$ \{aes128, aes192, aes256, 3des\} $\times$ \{ecb, cfb, ofb, cbc\} con la contraseña \texttt{metadata}, y en forma independiente (PBKDF2-HMAC-SHA256,
+10\,000 iteraciones, sal en cero, descifrado con \texttt{openssl enc}) los modos cfb8, cfb, ofb, cbc y ecb de AES-256 con esa contraseña y con una lista de otras (autor del PDF, valores de su metadato, palabras de \texttt{sol5.txt}, título y reparto de la película, variantes de mayúsculas). \dato{an-pista-exitos}
+combinaciones produjeron un archivo válido. La causa no se identificó: puede ser que la contraseña verdadera no sea la que dice el PDF, o que el archivo se haya cifrado con otros parámetros que los del enunciado.
+
+\pendienteVideo

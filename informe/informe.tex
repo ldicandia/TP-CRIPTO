@@ -49,8 +49,10 @@
 
 % ---------------------------------------------------------------- estructura
 \newenvironment{enunciado}{\begin{quote}\itshape\noindent\textbf{Enunciado.}\ }{\end{quote}}
-\newcommand{\pendienteEstegoanalisis}{%
-  \begin{center}\fbox{\parbox{0.9\linewidth}{\itshape Pendiente: esta cuestión requiere los archivos de estegoanálisis de la cátedra, que todavía no fueron entregados.}}\end{center}}
+
+\input{generado/datos-analisis}
+\newcommand{\pendienteVideo}{%
+  \begin{center}\fbox{\parbox{0.9\linewidth}{\itshape Pendiente: falta descifrar el archivo oculto en secreto1.bmp (no se conoce la contraseña); la respuesta sobre el contenido del video queda sin completar.}}\end{center}}
 \newcommand{\respuesta}[1]{\IfFileExists{secciones/#1.tex}{\input{secciones/#1}}{}}
 
 \title{Trabajo Práctico de Implementación: Esteganografía}
@@ -89,11 +91,11 @@ La esteganografía oculta la existencia misma del mensaje, a diferencia de la cr
 
 \textbf{Organización.} El informe responde en orden las cuestiones de la sección 7 del enunciado, una sección por cuestión, y cada respuesta empieza
 transcribiendo la pregunta. Las Cuestiones I y II analizan el documento de Majeed y Sulaiman y comparan los tres métodos; las Cuestiones VII y VIII explican y discuten la mejora que propone LSBI; la IX cuenta las
-dificultades de la implementación y la X propone mejoras. Las Cuestiones III a VI dependen de los archivos de estegoanálisis de la cátedra, que todavía no fueron entregados, y
-quedan marcadas como pendientes.
+dificultades de la implementación y la X propone mejoras. Las Cuestiones III a VI cuentan el estegoanálisis de los cuatro archivos que la cátedra entregó al grupo (\texttt{avatar.bmp},
+\texttt{madrid.bmp}, \texttt{montevideo.bmp} y \texttt{secreto1.bmp}); la V quedó incompleta porque no se pudo descifrar el video de \texttt{secreto1.bmp}.
 
 \textbf{Convenciones.} Las páginas citadas del documento de Majeed y Sulaiman son las de la revista (342 a 348). Todas las cifras medidas que se
-citan en las Cuestiones II y VII (capacidades, bytes modificados, MSE, PSNR, estadísticos $\chi^2$, conteos de inversión) se
+citan en las Cuestiones II, III, IV, VI y VII (capacidades, bytes modificados, MSE, PSNR, estadísticos $\chi^2$, conteos de inversión) se
 regeneran con \texttt{make report} a partir del propio programa y de las herramientas de análisis del
 repositorio, y se contrastaron con los archivos de \texttt{Ejemplo/} de la cátedra; ninguna se escribió a mano. Las rutas como \texttt{docs/LSBI-NOTES.md} remiten a las notas del proyecto.
 Para regenerar este informe basta ejecutar \texttt{make report} en la raíz del repositorio.
@@ -115,25 +117,25 @@ Esteganografiar un mismo archivo en un .bmp con cada uno de los tres algoritmos,
 \begin{enunciado}
 Explicar detalladamente el procedimiento realizado para descubrir qué se había ocultado en cada archivo y de qué modo. Indicar qué se encontró en cada archivo.
 \end{enunciado}
-\pendienteEstegoanalisis
+\respuesta{q03-procedimiento}
 
 \section{Cuestión IV: Mensajes ocultos dentro de mensajes ocultos}\label{sec:cuestion-iv}
 \begin{enunciado}
 Algunos mensajes ocultos tenían, a su vez, otros mensajes ocultos. Indica cuál era ese mensaje y cómo se había ocultado.
 \end{enunciado}
-\pendienteEstegoanalisis
+\respuesta{q04-mensajes-anidados}
 
 \section{Cuestión V: El fragmento de película}\label{sec:cuestion-v}
 \begin{enunciado}
 Uno de los archivos ocultos era una porción de un video de una película, donde se ve ejemplificado una manera de ocultar información ¿qué se ocultaba y sobre qué portador?
 \end{enunciado}
-\pendienteEstegoanalisis
+\respuesta{q05-pelicula}
 
 \section{Cuestión VI: El método de ocultamiento desconocido}\label{sec:cuestion-vi}
 \begin{enunciado}
 ¿De qué se trató el método de esteganografiado que no era LSB1 ni LSB4 ni LSBI? ¿Es un método eficaz? ¿Por qué?
 \end{enunciado}
-\pendienteEstegoanalisis
+\respuesta{q06-metodo-desconocido}
 
 \section{Cuestión VII: Por qué LSBI mejora a LSB}\label{sec:cuestion-vii}
 \begin{enunciado}

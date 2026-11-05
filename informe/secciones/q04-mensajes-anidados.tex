@@ -1,0 +1,57 @@
+% Cuestión IV. Mensajes ocultos dentro de mensajes ocultos. Cifras de generado/datos-analisis.tex.
+
+Dos de los archivos recuperados llevaban otro mensaje dentro, y esos mensajes forman una cadena de pistas que termina en \texttt{secreto1.bmp}.
+
+\subsection{El ZIP detrás de la imagen PNG}
+
+El PNG que \texttt{stegobmp} extrae de \texttt{montevideo.bmp} (figura~\ref{fig:q4-buscaminas}) mide \dato{an-mon-png-bytes} bytes, pero su estructura de chunks termina antes: los chunks son \texttt{IHDR}, \texttt{sRGB}, \texttt{gAMA}, \texttt{pHYs},
+\texttt{IDAT} e \texttt{IEND}, y el \texttt{IEND} acaba en el byte \dato{an-mon-png-restoini}. Sobran \dato{an-mon-png-resto} bytes, que empiezan con la firma \texttt{PK\textbackslash x03\textbackslash x04} de un archivo ZIP. Se lo
+puede abrir con cualquier descompresor una vez extraídos esos bytes y contiene un único archivo, \texttt{\dato{an-mon-zip-nombre}}, de \dato{an-mon-zip-bytes} bytes (listado~\ref{lst:q4-sol5}).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.45\linewidth]{generado/an-montevideo-oculto.png}
+\caption{Imagen PNG recuperada de \texttt{montevideo.bmp} con LSB1: un tablero de buscaminas de 6$\times$6}
+\label{fig:q4-buscaminas}
+\end{figure}
+
+\textbf{Cómo se había ocultado.} Es concatenación: un ZIP pegado después del \texttt{IEND} del PNG. Los lectores de PNG dejan de leer en el \texttt{IEND} y no se quejan de lo que viene después, y los de ZIP buscan el directorio
+central desde el final del archivo, de modo que el mismo archivo se abre como imagen y como ZIP. El mensaje que la cátedra dejó agregado al final de \texttt{madrid.bmp} indica exactamente este paso (<<al .png cambiar extension por .zip y descomprimir>>,
+Cuestión~VI): cambiar la extensión a \texttt{.zip} basta para que el descompresor ignore el PNG inicial.
+
+\lstinputlisting[caption={Contenido de \texttt{sol5.txt}, dentro del ZIP},label={lst:q4-sol5}]{generado/an-sol5.txt}
+
+\subsection{El PDF y la contraseña}
+
+El PDF recuperado de \texttt{avatar.bmp} (con LSBI) es el segundo mensaje anidado: dice <<\texttt{La password es metadata}>> y muestra un candado con una llave (listado~\ref{lst:q4-pdf}). \texttt{sol5.txt} dice que <<la password está en otro archivo>>, y este es el único
+candidato: \texttt{madrid.bmp} sólo guarda el texto de la Cuestión~VI. Dentro del PDF se revisaron la información del documento (autor <<Ana>>, creado con Word el 28 de mayo de 2022), el flujo XMP y la imagen JPEG del candado
+(109$\times$109, sin segmentos EXIF ni datos después del marcador de fin).
+
+\lstinputlisting[caption={Texto del PDF extraído de \texttt{avatar.bmp}},label={lst:q4-pdf}]{generado/an-avatar-texto.txt}
+
+\subsection{Cómo se oculta el algoritmo y el modo}
+
+\texttt{sol5.txt} da las reglas para leer el tablero de buscaminas: <<cada mina es un 1>>, <<cada fila forma una letra>> y <<los ascii de las letras empiezan todos en 01>>. Es decir que cada fila de seis celdas aporta los seis bits bajos de un
+carácter ASCII, con los dos bits altos \texttt{01}. El mensaje queda a la vista en el contenido de la imagen, no en sus bytes. El cuadro~\ref{tab:q4-tablero} muestra la lectura del tablero de la
+figura~\ref{fig:q4-buscaminas}. Las banderas no alcanzan: el contador del juego indica 3 minas sin marcar y quedan 5 celdas cerradas. Los números del tablero admiten una única solución, con minas en las dos celdas cerradas de la fila 4 y en la de la fila 6; las dos de la fila 1 no tienen mina.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+Fila & Celdas (1 = mina) & Bits & Byte con prefijo \texttt{01} & Carácter \\
+\midrule
+1 & 0 0 0 0 0 1 & 000001 & \texttt{0x41} & \texttt{A} \\
+2 & 1 0 0 1 0 1 & 100101 & \texttt{0x65} & \texttt{e} \\
+3 & 1 1 0 0 1 1 & 110011 & \texttt{0x73} & \texttt{s} \\
+4 & 0 0 1 1 1 1 & 001111 & \texttt{0x4F} & \texttt{O} \\
+5 & 1 0 0 1 1 0 & 100110 & \texttt{0x66} & \texttt{f} \\
+6 & 1 0 0 0 1 0 & 100010 & \texttt{0x62} & \texttt{b} \\
+\bottomrule
+\end{tabular}
+\caption{Lectura del tablero de buscaminas (fila 1 arriba)}
+\label{tab:q4-tablero}
+\end{table}
+
+Las seis filas forman <<AesOfb>>. Como el texto aclara que el algoritmo es el <<que tiene clave de 256 bits>>, se trata de \texttt{aes256} en modo \texttt{ofb}, lo que coincide con que el largo del texto cifrado no sea múltiplo del bloque (Cuestión~V).

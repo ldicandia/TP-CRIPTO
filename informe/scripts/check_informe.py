@@ -5,13 +5,13 @@ Uso: python3 informe/scripts/check_informe.py [--pdf PDF] [--respondidas I,II,..
                                               [--max-overfull-pt N] [--fase4]
 
 Siempre: el PDF existe y empieza con %PDF-; los diez encabezados "Cuestión I:" ... "Cuestión X:" aparecen
-al menos dos veces (índice y cuerpo); la frase de "pendiente" aparece exactamente 4 veces (Cuestiones
-III a VI, Fase 5); no hay "??" en el texto; cada cifra de generado/esperado-en-pdf.txt aparece en el PDF;
+al menos dos veces (índice y cuerpo); la frase de "pendiente" aparece exactamente 1 vez (Cuestión V)
+(la V, sin descifrar); no hay "??" en el texto; cada cifra de generado/esperado-en-pdf.txt aparece en el PDF;
 y las secciones q02-comparacion.tex y q07-mejora-lsbi.tex no contienen cifras medidas escritas a mano
 (deben venir de \\dato o de las tablas generadas).
 --respondidas: exige el cuerpo de cada cuestión listada (sin \\pendienteEstegoanalisis, con un mínimo
 de palabras de prosa). --max-overfull-pt: tope para los "Overfull \\hbox" de informe.log.
---fase4: --respondidas I,II,VII,VIII,IX,X --max-overfull-pt 10 y sin entradas de bibliografía sin citar.
+--fase4: --respondidas I,II,III,IV,VI,VII,VIII,IX,X --max-overfull-pt 10 y sin entradas de bibliografía sin citar.
 
 Salida: "PASS check_informe: <resumen>" (código 0) o una línea "FAIL check_informe: <motivo>" por
 problema (código 1). Resuelve todas las rutas desde la raíz del repositorio (no depende del cwd).
@@ -29,8 +29,9 @@ SEC = os.path.join(INF, 'secciones')
 GEN = os.path.join(INF, 'generado')
 
 ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
-PENDIENTE = 'Pendiente: esta cuestión requiere los archivos de estegoanálisis de la cátedra'
-MINIMOS = {'I': ('q01-paper', 1500), 'II': ('q02-comparacion', 700), 'VII': ('q07-mejora-lsbi', 600),
+PENDIENTE = 'Pendiente: falta descifrar el archivo oculto en secreto1.bmp'
+MINIMOS = {'III': ('q03-procedimiento', 600), 'IV': ('q04-mensajes-anidados', 400), 'VI': ('q06-metodo-desconocido', 400),
+           'I': ('q01-paper', 1500), 'II': ('q02-comparacion', 700), 'VII': ('q07-mejora-lsbi', 600),
            'VIII': ('q08-registro-patrones', 500), 'IX': ('q09-dificultades', 1000), 'X': ('q10-mejoras', 500)}
 MEDIDAS = ['q02-comparacion.tex', 'q07-mejora-lsbi.tex']
 
@@ -118,7 +119,7 @@ def main():
     respondidas = [r.strip() for r in a.respondidas.split(',') if r.strip()]
     maxof = a.max_overfull_pt
     if a.fase4:
-        respondidas = ['I', 'II', 'VII', 'VIII', 'IX', 'X']
+        respondidas = ['I', 'II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX', 'X']
         maxof = 10.0 if maxof is None else maxof
 
     resumen = []
@@ -142,8 +143,8 @@ def main():
             if n < 2:
                 falla('el encabezado "Cuestión %s:" aparece %d vez/veces en el PDF (se esperan al menos 2: índice y cuerpo)' % (r, n))
         n = plano.count(PENDIENTE)
-        if n != 4:
-            falla('la nota de pendiente aparece %d veces en el PDF (se esperan exactamente 4: Cuestiones III a VI)' % n)
+        if n != 1:
+            falla('la nota de pendiente aparece %d veces en el PDF (se espera exactamente 1: Cuestión V)' % n)
         if '??' in texto:
             falla('el PDF contiene "??" (referencia sin resolver)')
         esp = os.path.join(GEN, 'esperado-en-pdf.txt')
@@ -211,7 +212,7 @@ def main():
         for f in fallas:
             print('FAIL check_informe: %s' % f)
         return 1
-    print('PASS check_informe: 10 encabezados, 4 pendientes%s' % (
+    print('PASS check_informe: 10 encabezados, 1 pendiente%s' % (
         ''.join('; ' + r for r in resumen)))
     return 0
 

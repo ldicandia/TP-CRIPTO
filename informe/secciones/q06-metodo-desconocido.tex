@@ -1,0 +1,27 @@
+% Cuestión VI. El método que no era LSB1, LSB4 ni LSBI: datos agregados al final de madrid.bmp.
+% Cifras de generado/datos-analisis.tex.
+
+\textbf{El método.} Era el más simple de los posibles: agregar el mensaje \emph{al final del archivo}, después del último píxel. \texttt{madrid.bmp} tiene \dato{an-madrid-bytes} bytes; la cabecera de 54 bytes más los
+\dato{an-madrid-ancho}$\times$\dato{an-madrid-alto} píxeles de 3 bytes (sin relleno de fila, porque $\dato{an-madrid-ancho}\cdot 3$ es múltiplo de 4) suman \dato{an-madrid-pixeles-reales} bytes de píxeles, y quedan \dato{an-madrid-agregados}
+bytes que no son imagen. Esos bytes son texto (listado~\ref{lst:q6-madrid}):
+
+\lstinputlisting[caption={Los bytes agregados al final de \texttt{madrid.bmp}},label={lst:q6-madrid}]{generado/an-madrid-texto.txt}
+
+El mensaje no es la clave de nada: es la instrucción para el paso siguiente de la cadena (convertir el PNG de \texttt{montevideo.bmp} en ZIP, Cuestión~IV). Los píxeles en cambio no esconden nada. En la comprobación de la Cuestión~III, ni el campo de tamaño de LSB1,
+LSB4 y LSBI, ni otras lecturas razonables de los bits bajos (otros canales, otro orden de filas, dos a ocho bits por canal) dan un encabezado coherente.
+
+\textbf{Cómo se encuentra.} La diferencia entre el tamaño real del archivo y el que sale de la cabecera es inmediata: \texttt{tools/sigsearch.py} la informa como datos agregados (\emph{appended}), y un editor hexadecimal muestra las últimas
+líneas como texto legible. La cabecera de \texttt{madrid.bmp} tampoco es consistente: el campo del tamaño de archivo vale \dato{an-madrid-bfsize} (54 más los píxeles, sin contar el texto) y el del tamaño de la imagen vale
+\dato{an-madrid-sizeimg}, que no es $\dato{an-madrid-ancho}\cdot\dato{an-madrid-alto}\cdot 3 = \dato{an-madrid-pixeles-reales}$ sino el tamaño real del archivo menos 54. Quien agregó el texto actualizó un campo de la cabecera y no el otro.
+
+\textbf{¿Es eficaz?} No, por varias razones:
+\begin{itemize}
+\item \emph{Se detecta con una resta.} Comparar el tamaño del archivo con lo que dice su cabecera, o mirar el final del archivo con un editor hexadecimal o con \texttt{strings}, basta. Un mensaje en claro es legible a simple vista.
+\item \emph{No sobrevive a ningún procesamiento.} Abrir la imagen y volver a guardarla en un programa de edición, convertirla de formato o recomprimirla descarta todo lo que no sea píxel; también lo pierde cualquier programa que copie sólo lo que declara la cabecera.
+\item \emph{Sin ninguna protección.} Cualquiera que encuentre los bytes los lee; no hay clave, no hay cifrado y no hay disimulo.
+\item \emph{Sólo tiene una ventaja: no toca los píxeles.} La imagen se ve y se analiza estadísticamente exactamente igual que la original, de modo que ningún ataque por histograma o $\chi^2$ sobre los bits bajos~\cite{westfeld2000,fridrich2001} puede detectarlo, y la capacidad no depende de la portadora. Pero esa ventaja
+no compensa que el delator sea el tamaño del archivo.
+\end{itemize}
+
+Comparado con los tres métodos LSB, el agregado al final cambia la robustez estadística por la visibilidad estructural: LSB1, LSB4 y LSBI esconden el mensaje \emph{dentro} de los datos de la imagen y mantienen el tamaño del archivo, que es lo que
+hace falta para que no llame la atención. Servir de portadora es una propiedad del contenido de los píxeles, no del archivo que los contiene.

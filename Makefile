@@ -27,6 +27,7 @@ test-tools:
 # Informe (LaTeX): mide con ./stegobmp y las herramientas de tools/, compila el PDF y lo valida.
 report: stegobmp
 	python3 informe/scripts/medir_q2.py
+	python3 informe/scripts/medir_estegoanalisis.py
 	bash informe/build.sh
 
 clean:

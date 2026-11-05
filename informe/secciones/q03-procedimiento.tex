@@ -1,0 +1,69 @@
+% Cuestión III. Procedimiento de estegoanálisis de los 4 archivos del grupo 5.
+% Todas las cifras salen de generado/datos-analisis.tex (informe/scripts/medir_estegoanalisis.py).
+
+La cátedra entregó cuatro archivos BMP de 24 bits sin compresión: \texttt{avatar.bmp}, \texttt{madrid.bmp}, \texttt{montevideo.bmp} y \texttt{secreto1.bmp}. El enunciado avisa que uno
+oculta información con LSB1, otro con LSB4, otro con LSBI y un cuarto \emph{de otra forma}, sin decir cuál es cuál~\cite{catedra2026}. El procedimiento fue el mismo para los cuatro y se puede repetir con
+\texttt{make report} (o con \texttt{python3 informe/scripts/medir\_estegoanalisis.py}), que vuelve a ejecutar cada paso con \texttt{./stegobmp}.
+
+\subsection{Procedimiento}
+
+\begin{enumerate}
+\item \textbf{Cabecera y tamaños.} Se leen los 54 bytes de cabecera (ancho, alto, bits por píxel, tamaño declarado) y se calcula cuántos bytes ocupan los píxeles con el relleno de fila. Se compara con el tamaño real del archivo:
+cualquier dato después del último píxel aparece como diferencia. Los cuatro archivos son BMP V3 de 24 bits; tres tienen exactamente el tamaño que dice la cabecera y \texttt{madrid.bmp} tiene \dato{an-madrid-agregados} bytes de más.
+\item \textbf{Prueba de los tres métodos.} Con \texttt{stegobmp -extract} se prueba LSB1, LSB4 y LSBI sobre cada archivo. Un método se acepta cuando el campo de tamaño (4 bytes, big endian)
+cabe en la capacidad del portador y, tras los datos, aparece una extensión terminada en NUL. Con un método equivocado el campo de tamaño sale como un número al azar de 32 bits, casi siempre mayor que la capacidad
+(del orden de $10^9$ contra $10^6$--$10^7$ bytes), así que la prueba descarta rápido. Para no depender del programa, el campo de tamaño de LSB1 y LSB4 se lee también con una rutina independiente en Python.
+\item \textbf{Examen de lo extraído.} Se identifica el tipo de archivo por su firma (\texttt{tools/sigsearch.py} busca firmas conocidas en todo el archivo) y se abre. Si el resultado es un contenedor se miran sus partes
+(chunks de un PNG, objetos de un PDF) y los datos posteriores a su marca de fin.
+\item \textbf{Mensajes anidados.} Todo lo recuperado se vuelve a analizar con los mismos pasos (Cuestión~IV).
+\end{enumerate}
+
+\subsection{Resultado de la prueba de métodos}
+
+El cuadro~\ref{tab:q3-metodos} resume los pasos 1 y 2. Cada columna de método dice qué hizo \texttt{stegobmp -extract} sobre el archivo, sin contraseña.
+
+\begin{table}[htbp]
+\centering
+\small
+\renewcommand{\arraystretch}{1.1}
+\input{generado/analisis-tabla-metodos}
+\caption{Resultado de \texttt{stegobmp -extract} con cada método, sin contraseña (<<tamaño N no cabe>>: el campo de tamaño leído supera la capacidad)}
+\label{tab:q3-metodos}
+\end{table}
+
+Con un solo método plausible por archivo la identificación es inequívoca; el cuadro además muestra por qué \texttt{madrid.bmp} no entra en ninguno de los tres métodos (los tres campos de tamaño son enormes) y por qué \texttt{secreto1.bmp}
+entra en LSB4 pero no se deja extraer sin más: el tamaño es válido, pero el contenido no termina en una extensión. Eso indica que lo oculto está cifrado.
+
+\subsection{Qué se encontró en cada archivo}
+
+\begin{table}[htbp]
+\centering
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}X@{}}
+\toprule
+Archivo (dimensiones) & Método & Contenido encontrado \\
+\midrule
+\texttt{avatar.bmp} (\dato{an-avatar-ancho}$\times$\dato{an-avatar-alto}) & LSBI, sin encripción & Un PDF de \dato{an-avatar-pdf-bytes} bytes con el texto <<La password es metadata>> y la imagen de un candado con una llave. \\
+\texttt{montevideo.bmp} (\dato{an-montevideo-ancho}$\times$\dato{an-montevideo-alto}) & LSB1, sin encripción & Una imagen PNG de \dato{an-mon-png-bytes} bytes (\dato{an-mon-png-ancho}$\times$\dato{an-mon-png-alto}) con un tablero de buscaminas, seguida de un ZIP de \dato{an-mon-png-resto} bytes (Cuestión~IV). \\
+\texttt{secreto1.bmp} (\dato{an-secreto1-ancho}$\times$\dato{an-secreto1-alto}) & LSB4, con encripción & \dato{an-secreto1-tam4} bytes cifrados; según las pistas, un video \texttt{.wmv} (Cuestión~V). \\
+\texttt{madrid.bmp} (\dato{an-madrid-ancho}$\times$\dato{an-madrid-alto}) & Ninguno de LSB1, LSB4 ni LSBI: datos agregados al final & Un texto de \dato{an-madrid-agregados} bytes después del último píxel (Cuestión~VI). \\
+\bottomrule
+\end{tabularx}
+\caption{Contenido recuperado de cada archivo de la cátedra}
+\label{tab:q3-contenido}
+\end{table}
+
+\textbf{avatar.bmp (LSBI).} Los métodos LSB1 y LSB4 dan tamaños imposibles, y LSBI da un archivo cuyos primeros bytes son \texttt{\%PDF}, que se abre como un PDF de una página. El nombre del archivo
+extraído lleva la extensión guardada (\texttt{.pdf}), de modo que el formato queda confirmado por la propia carga y no solo por la firma.
+
+\textbf{montevideo.bmp (LSB1).} El campo de tamaño de LSB1 es \dato{an-montevideo-tam1}, que cabe en una portadora de \dato{an-montevideo-cap1} bytes de capacidad; el de LSB4 es del orden de $10^9$. El archivo extraído tiene extensión \texttt{.png} y es un PNG
+válido; el análisis de lo que contiene sigue en la Cuestión~IV.
+
+\textbf{secreto1.bmp (LSB4 cifrado).} El campo de tamaño de LSB4 vale \dato{an-secreto1-tam4}, menos del 7\,\% de la capacidad de LSB4 (\dato{an-secreto1-cap4} bytes), mientras que los de LSB1 y LSBI son del orden de $10^8$ y $10^9$. Un tamaño tan
+razonable no sale por casualidad (la probabilidad de que un valor al azar de 32 bits caiga por debajo de la capacidad es de aproximadamente 0{,}3\,\%). Pero los bytes que siguen no terminan en una extensión y tienen apariencia de datos
+aleatorios; \texttt{stegobmp} informa que el campo de extensión está malformado. Además, \dato{an-secreto1-tam4} no es múltiplo de 16 ni de 8, así que si hay cifrado de bloque en modo ECB o CBC tendría que haberse truncado: el modo
+tiene que ser de flujo (CFB u OFB). Las pistas de los otros archivos confirman que se trata de un archivo cifrado (Cuestiones IV y V).
+
+\textbf{madrid.bmp (otro método).} Ningún método de los tres da un resultado coherente. Pero el archivo mide \dato{an-madrid-bytes} bytes y los píxeles ocupan \dato{an-madrid-pixeles-reales}, más 54 de cabecera: sobran
+\dato{an-madrid-agregados} bytes al final. Se detalla en la Cuestión~VI.
