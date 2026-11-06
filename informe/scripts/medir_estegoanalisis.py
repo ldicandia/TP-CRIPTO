@@ -31,6 +31,11 @@ METODOS = ['LSB1', 'LSB4', 'LSBI']
 ALGS = ['aes128', 'aes192', 'aes256', '3des']
 MODOS = ['ecb', 'cfb', 'ofb', 'cbc']
 PASSWORD_PISTA = 'metadata'
+PASSWORD_REAL = 'metadata\r'
+ASF_MAGIC = bytes.fromhex('3026b2758e66cf11a6d900aa0062ce6c')
+ASF_FILE_PROPS = bytes.fromhex('a1dcab8c47a9cf118ee400c00c205365')
+ASF_STREAM_PROPS = bytes.fromhex('9107dcb7b7a9cf118ee600c00c205365')
+ASF_VIDEO_MEDIA = bytes.fromhex('c0ef19bc4d5bcf11a8fd00805f5c442b')
 
 
 class Error(Exception):
@@ -124,6 +129,28 @@ def analizar(dirsal, base, d):
                                 for i in zf.infolist()]
                 except zipfile.BadZipFile:
                     r['zip'] = None
+        elif c[:16] == ASF_MAGIC:
+            r['tipo'] = 'WMV'
+            r['wmv'] = c
+            idx_fp = c.find(ASF_FILE_PROPS)
+            if idx_fp != -1:
+                play_dur, _send_dur, preroll = struct.unpack_from('<QQQ', c, idx_fp + 64)
+                r['duracion'] = int(round(play_dur / 1e7 - preroll / 1e3))
+            pos = 30
+            hdr_size, num_objs = struct.unpack_from('<QI', c, 16)
+            for _ in range(num_objs):
+                if pos + 24 > len(c):
+                    break
+                g = c[pos:pos + 16]
+                sz, = struct.unpack_from('<Q', c, pos + 16)
+                if g == ASF_STREAM_PROPS and c[pos + 24:pos + 40] == ASF_VIDEO_MEDIA:
+                    bi_w, bi_h, _pl, _bc, comp = struct.unpack_from('<iiHH4s', c, pos + 78 + 15)
+                    r['ancho'] = bi_w
+                    r['alto'] = bi_h
+                    r['codec'] = comp.decode('latin-1')
+                if sz <= 0:
+                    break
+                pos += sz
         else:
             r['tipo'] = '?'
         break
@@ -154,18 +181,25 @@ def medir(directorio):
                     linea = err.split('\n')[0]
                     info['metodos'][m] = ('no', linea)
         res[base] = info
-    # secreto1: ningún método sin contraseña; se prueba la pista con las 3 x 16 combinaciones
+    # secreto1: ningún método sin contraseña; se prueba la pista literal ("metadata") con las 3 x 16 combinaciones
+    # y luego la contraseña real ("metadata\r", con retorno de carro de fin de línea CRLF).
+    rel_sec = os.path.relpath(os.path.join(directorio, 'secreto1.bmp'), ROOT)
     exitos = []
     for m in METODOS:
         for a in ALGS:
             for mo in MODOS:
                 with tempfile.TemporaryDirectory() as t:
-                    rc, _o, _e = run([STEGO, '-extract', '-p', os.path.relpath(
-                        os.path.join(directorio, 'secreto1.bmp'), ROOT), '-out', os.path.join(t, 's'),
+                    rc, _o, _e = run([STEGO, '-extract', '-p', rel_sec, '-out', os.path.join(t, 's'),
                         '-steg', m, '-a', a, '-m', mo, '-pass', PASSWORD_PISTA])
                     if rc == 0:
                         exitos.append((m, a, mo))
     res['_pista'] = exitos
+    with tempfile.TemporaryDirectory() as t:
+        rc, _o, err = run([STEGO, '-extract', '-p', rel_sec, '-out', os.path.join(t, 'secreto1'),
+                           '-steg', 'LSB4', '-a', 'aes256', '-m', 'ofb', '-pass', PASSWORD_REAL])
+        if rc != 0:
+            raise Error('secreto1.bmp no se pudo descifrar con metadata\\r: %s' % err.strip())
+        res['secreto1']['extraido'] = analizar(t, 'secreto1', res['secreto1'])
     return res
 
 
@@ -217,7 +251,17 @@ def escribir(res):
     d('an-mon-zip-texto', texto)
     d('an-pista-exitos', str(len(res['_pista'])))
     if res['_pista']:
-        raise Error('la pista "%s" ya descifra secreto1: %r (actualizar el informe)' % (PASSWORD_PISTA, res['_pista']))
+        raise Error('la pista literal "%s" descifró secreto1 inesperadamente: %r' % (PASSWORD_PISTA, res['_pista']))
+    wmv = sec.get('extraido', {})
+    if wmv.get('tipo') != 'WMV':
+        raise Error('secreto1.bmp no extrajo un WMV válido')
+    with open(os.path.join(GEN, 'an-secreto1-oculto.wmv'), 'wb') as f:
+        f.write(wmv['wmv'])
+    d('an-secreto1-wmv-bytes', tex_int(wmv['bytes']))
+    d('an-secreto1-wmv-ancho', str(wmv['ancho']))
+    d('an-secreto1-wmv-alto', str(wmv['alto']))
+    d('an-secreto1-wmv-duracion', str(wmv['duracion']))
+    d('an-secreto1-wmv-codec', wmv['codec'])
     # contenidos para listados
     with open(os.path.join(GEN, 'datos-analisis.tex'), 'w', encoding='utf-8') as f:
         f.write('% Generado por informe/scripts/medir_estegoanalisis.py: no editar a mano.\n')

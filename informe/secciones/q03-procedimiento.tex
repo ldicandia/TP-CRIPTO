@@ -46,7 +46,7 @@ Archivo (dimensiones) & Método & Contenido encontrado \\
 \midrule
 \texttt{avatar.bmp} (\dato{an-avatar-ancho}$\times$\dato{an-avatar-alto}) & LSBI, sin encripción & Un PDF de \dato{an-avatar-pdf-bytes} bytes con el texto <<La password es metadata>> y la imagen de un candado con una llave. \\
 \texttt{montevideo.bmp} (\dato{an-montevideo-ancho}$\times$\dato{an-montevideo-alto}) & LSB1, sin encripción & Una imagen PNG de \dato{an-mon-png-bytes} bytes (\dato{an-mon-png-ancho}$\times$\dato{an-mon-png-alto}) con un tablero de buscaminas, seguida de un ZIP de \dato{an-mon-png-resto} bytes (Cuestión~IV). \\
-\texttt{secreto1.bmp} (\dato{an-secreto1-ancho}$\times$\dato{an-secreto1-alto}) & LSB4, con encripción & \dato{an-secreto1-tam4} bytes cifrados; según las pistas, un video \texttt{.wmv} (Cuestión~V). \\
+\texttt{secreto1.bmp} (\dato{an-secreto1-ancho}$\times$\dato{an-secreto1-alto}) & LSB4, \texttt{aes256} en modo \texttt{ofb} & Un video \texttt{.wmv} de \dato{an-secreto1-wmv-bytes} bytes (\dato{an-secreto1-wmv-ancho}$\times$\dato{an-secreto1-wmv-alto}, \dato{an-secreto1-wmv-duracion}~s), cifrado en \dato{an-secreto1-tam4} bytes con la contraseña \texttt{metadata\textbackslash r} (Cuestión~V). \\
 \texttt{madrid.bmp} (\dato{an-madrid-ancho}$\times$\dato{an-madrid-alto}) & Ninguno de LSB1, LSB4 ni LSBI: datos agregados al final & Un texto de \dato{an-madrid-agregados} bytes después del último píxel (Cuestión~VI). \\
 \bottomrule
 \end{tabularx}
@@ -63,7 +63,7 @@ válido; el análisis de lo que contiene sigue en la Cuestión~IV.
 \textbf{secreto1.bmp (LSB4 cifrado).} El campo de tamaño de LSB4 vale \dato{an-secreto1-tam4}, menos del 7\,\% de la capacidad de LSB4 (\dato{an-secreto1-cap4} bytes), mientras que los de LSB1 y LSBI son del orden de $10^8$ y $10^9$. Un tamaño tan
 razonable no sale por casualidad (la probabilidad de que un valor al azar de 32 bits caiga por debajo de la capacidad es de aproximadamente 0{,}3\,\%). Pero los bytes que siguen no terminan en una extensión y tienen apariencia de datos
 aleatorios; \texttt{stegobmp} informa que el campo de extensión está malformado. Además, \dato{an-secreto1-tam4} no es múltiplo de 16 ni de 8, así que si hay cifrado de bloque en modo ECB o CBC tendría que haberse truncado: el modo
-tiene que ser de flujo (CFB u OFB). Las pistas de los otros archivos confirman que se trata de un archivo cifrado (Cuestiones IV y V).
+tiene que ser de flujo (CFB u OFB). Las pistas de los otros archivos confirman que se trata de un video \texttt{.wmv} de \dato{an-secreto1-wmv-bytes} bytes cifrado con \texttt{aes256} en modo \texttt{ofb} (Cuestiones IV y V).
 
 \textbf{madrid.bmp (otro método).} Ningún método de los tres da un resultado coherente. Pero el archivo mide \dato{an-madrid-bytes} bytes y los píxeles ocupan \dato{an-madrid-pixeles-reales}, más 54 de cabecera: sobran
 \dato{an-madrid-agregados} bytes al final. Se detalla en la Cuestión~VI.

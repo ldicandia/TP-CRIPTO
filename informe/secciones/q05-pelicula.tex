@@ -1,20 +1,40 @@
-% Cuestión V. El fragmento de película oculto en secreto1.bmp. INCOMPLETA: falta la contraseña que descifra el archivo.
-% Cuando se descifre, reemplazar \pendienteVideo por la respuesta (qué se ocultaba, sobre qué portador) y actualizar
-% check_informe.py (PENDIENTE y el conteo esperado).
+% Cuestión V. El fragmento de película oculto en secreto1.bmp.
+% Todas las cifras medidas salen de generado/datos-analisis.tex (informe/scripts/medir_estegoanalisis.py).
 
-\textbf{Dónde está.} El video es lo que oculta \texttt{secreto1.bmp}, el afiche de la película \emph{El secreto de sus ojos}. \texttt{sol5.txt} lo dice: <<con algoritmo, modo y password hay un .wmv encriptado y oculto>> (listado~\ref{lst:q4-sol5}).
-Con LSB4 y sin contraseña \texttt{stegobmp} lee un campo de tamaño de \dato{an-secreto1-tam4} bytes, válido, pero lo que sigue es un texto cifrado: no termina en una extensión y se ve como datos al azar (Cuestión~III).
+\subsection{Descifrado y extracción del video (\texttt{secreto1.bmp})}
 
-\textbf{Lo que se sabe del cifrado.}
+El video oculto se encuentra dentro de \texttt{secreto1.bmp} (\dato{an-secreto1-ancho}$\times$\dato{an-secreto1-alto}, cuyo portador visual es el afiche de la película \emph{El secreto de sus ojos}), tal como anticipa la pista de \texttt{sol5.txt}: <<con algoritmo, modo y password hay un .wmv encriptado y oculto>> (listado~\ref{lst:q4-sol5}). La cadena de pistas de los otros tres archivos determina todos los parámetros de extracción:
 \begin{itemize}
-\item Método de ocultamiento: LSB4 (campo de tamaño válido, \dato{an-secreto1-tam4} bytes, capacidad \dato{an-secreto1-cap4}).
-\item Algoritmo: \texttt{aes256}, la única opción con clave de 256 bits que ofrece el programa (\texttt{sol5.txt}).
-\item Modo: OFB, según el tablero de buscaminas (Cuestión~IV). Es consistente con que \dato{an-secreto1-tam4} no sea múltiplo del bloque de 16 bytes, ya que ECB y CBC con relleno PKCS5 siempre dan un múltiplo.
-\item Contraseña: el PDF de \texttt{avatar.bmp} dice <<\texttt{metadata}>>.
+\item \textbf{Método de esteganografiado:} \texttt{LSB4}, el único de los tres métodos cuyo campo de tamaño de 32 bits big endian (\dato{an-secreto1-tam4} bytes) cabe dentro de la capacidad del portador (\dato{an-secreto1-cap4} bytes).
+\item \textbf{Algoritmo de cifrado:} \texttt{aes256}, dado que \texttt{sol5.txt} indica <<El algoritmo de encripción es el que tiene clave de 256 bits>> y las primeras tres filas del tablero de buscaminas de \texttt{montevideo.bmp} forman <<\texttt{Aes}>> (Cuestión~IV).
+\item \textbf{Modo de operación:} \texttt{ofb}, codificado en las tres últimas filas del tablero de buscaminas (<<\texttt{Ofb}>>, cuadro~\ref{tab:q4-tablero}), lo cual concuerda con que la longitud del texto cifrado (\dato{an-secreto1-tam4} bytes) no sea múltiplo del tamaño de bloque de 16 bytes de AES.
+\item \textbf{Contraseña:} el PDF extraído de \texttt{avatar.bmp} indica <<\texttt{La password es metadata}>> (listado~\ref{lst:q4-pdf}).
 \end{itemize}
 
-\textbf{Qué se probó.} Con \texttt{./stegobmp -extract} se probaron las 48 combinaciones de \{LSB1, LSB4, LSBI\} $\times$ \{aes128, aes192, aes256, 3des\} $\times$ \{ecb, cfb, ofb, cbc\} con la contraseña \texttt{metadata}, y en forma independiente (PBKDF2-HMAC-SHA256,
-10\,000 iteraciones, sal en cero, descifrado con \texttt{openssl enc}) los modos cfb8, cfb, ofb, cbc y ecb de AES-256 con esa contraseña y con una lista de otras (autor del PDF, valores de su metadato, palabras de \texttt{sol5.txt}, título y reparto de la película, variantes de mayúsculas). \dato{an-pista-exitos}
-combinaciones produjeron un archivo válido. La causa no se identificó: puede ser que la contraseña verdadera no sea la que dice el PDF, o que el archivo se haya cifrado con otros parámetros que los del enunciado.
+\textbf{Causa del fallo con la cadena literal \texttt{metadata}.} Al probar inicialmente la cadena de 8 bytes \texttt{metadata} con las 48 combinaciones de \{\texttt{LSB1}, \texttt{LSB4}, \texttt{LSBI}\} $\times$ \{\texttt{aes128}, \texttt{aes192}, \texttt{aes256}, \texttt{3des}\} $\times$ \{\texttt{ecb}, \texttt{cfb}, \texttt{ofb}, \texttt{cbc}\}, \dato{an-pista-exitos} combinaciones produjeron un archivo válido. La razón es que el script de shell con el que la cátedra generó \texttt{secreto1.bmp} en Linux/WSL tenía saltos de línea de Windows (\texttt{CRLF}, \texttt{\textbackslash r\textbackslash n}) y el parámetro \texttt{-pass metadata} figuraba al final de la línea: el intérprete de comandos consumió el salto de línea \texttt{\textbackslash n} (\texttt{0x0a}) como separador de comando, pero incorporó el retorno de carro \texttt{\textbackslash r} (\texttt{0x0d}) como noveno carácter del argumento en \texttt{argv}. Como PBKDF2-HMAC-SHA256 deriva la clave y el IV a partir de los bytes exactos de la contraseña, el byte adicional \texttt{0x0d} cambia por completo el flujo de clave de AES-256-OFB.
 
-\pendienteVideo
+Pasando la contraseña de 9 bytes \texttt{metadata\textbackslash r} (\texttt{6d 65 74 61 64 61 74 61 0d}), la extracción con \texttt{stegobmp} funciona de forma directa:
+\begin{lstlisting}
+./stegobmp -extract -p "imagenes catedra/grupo5/secreto1.bmp" -out secreto1 \
+    -steg LSB4 -a aes256 -m ofb -pass $'metadata\r'
+\end{lstlisting}
+Al descifrar los \dato{an-secreto1-tam4} bytes de texto cifrado se obtiene la carga interna válida: los primeros 4 bytes en big endian valen \texttt{0x000ddb18} (\dato{an-secreto1-wmv-bytes} bytes), seguidos por los \dato{an-secreto1-wmv-bytes} bytes del archivo de video (que comienza con la firma mágica \texttt{30 26 b2 75 8e 66 cf 11 a6 d9 00 aa 00 62 ce 6c} del contenedor Microsoft ASF/WMV) y los 5 bytes finales de la extensión terminada en nulo (\texttt{".wmv\textbackslash 0"}), sumando exactamente $4 + \dato{an-secreto1-wmv-bytes} + 5 = \dato{an-secreto1-tam4}$ bytes.
+
+\subsection{Contenido del video: qué se ocultaba y sobre qué portador}
+
+Aunque la imagen portadora \texttt{secreto1.bmp} muestra el afiche de \emph{El secreto de sus ojos}, el archivo extraído (\texttt{secreto1.wmv}, de \dato{an-secreto1-wmv-bytes} bytes, resolución de \dato{an-secreto1-wmv-ancho}$\times$\dato{an-secreto1-wmv-alto} píxeles, códec de video \texttt{\dato{an-secreto1-wmv-codec}} y \dato{an-secreto1-wmv-duracion}~segundos de duración, doblado al español y emitido por la cadena FOX) es una escena del episodio 2 de la quinta temporada de la serie televisiva \emph{Bones} (\emph{<<The Bond in the Boot>>} / \emph{<<El vínculo en el maletero>>}).
+
+En el fragmento, los investigadores Angela Montenegro y Jack Hodgins analizan en el laboratorio una fotografía que la víctima del caso —un analista de la CIA llamado Greg Dorit— le había enviado por correo electrónico a su pareja, supuestamente para cortar la relación. Mientras observan en la pantalla transparente la foto del hombre con anteojos y camisa celeste levantando la mano derecha en gesto de saludo o despedida, mantienen el siguiente diálogo:
+\begin{quote}
+\textbf{Hodgins:} <<Hay que ser cerdo para cortar con alguien por email.>>\\
+\textbf{Angela:} <<Ya. Como que hay un protocolo aceptable para partirle el corazón a alguien\dots\ Eh, un segundo. Qué raro. Este archivo es más grande de lo que debería, lo que significa que hay algún error de compresión, o\dots>>\\
+\textbf{Hodgins:} <<\dots o nuestro agente ocultó datos en el archivo.>>
+\end{quote}
+En ese instante, la pantalla del laboratorio superpone sobre la fotografía una columna de código que habían quedado ocultos dentro del archivo. Respondiendo puntualmente a los dos interrogantes del enunciado:
+
+\begin{itemize}
+\item \textbf{¿Sobre qué portador se ocultaba?} Sobre un \textbf{archivo de imagen digital} (una fotografía del propio agente saludando con la mano levantada, enviada como adjunto en un correo electrónico simulando una carta de despedida para cortar con su pareja).
+\item \textbf{¿Qué se ocultaba?} \textbf{Datos informáticos (código / un mensaje secreto del agente de la CIA)}. En lugar de estar rompiendo con su pareja, el agente utilizó la fotografía como portador esteganográfico para transmitirle información confidencial de su investigación (en la trama del episodio, las pistas para localizar dónde había escondido su maletín antes de ser asesinado) a la única persona en quien confiaba.
+\end{itemize}
+
+\textbf{Relación con los métodos analizados en el trabajo.} Resulta ilustrativo el detalle técnico por el cual Angela descubre el ocultamiento en la escena: advierte que \emph{<<este archivo es más grande de lo que debería>>}. En los métodos de reemplazo sobre el dominio espacial como LSB1, LSB4 y LSBI, los bits del mensaje sustituyen bits ya existentes de los píxeles, por lo que el tamaño del archivo portador no cambia ni un solo byte. En cambio, cuando se ocultan datos agregándolos al final del archivo portador —exactamente como hizo la cátedra con el texto agregado al final de \texttt{madrid.bmp} (Cuestión~VI) o con el archivo ZIP concatenado después del chunk \texttt{IEND} del PNG extraído de \texttt{montevideo.bmp} (Cuestión~IV)— el tamaño total del archivo aumenta de manera anómala respecto de lo que ocuparía la imagen por sí sola, delatando la presencia de datos ocultos ante una simple verificación de tamaño.
