@@ -120,8 +120,8 @@ La consigna exige que el programa compile y corra en Ubuntu 22.04.3 y en pampero
 (por ejemplo, la creación y destrucción de contextos). El código se limita a llamadas comunes a 1.0.2, 1.1.1 y 3.x, y el caso \texttt{build-openssl-api-allowlist} de \texttt{make test} falla si aparece un identificador de OpenSSL fuera de una lista
 permitida, un encabezado distinto de \texttt{evp.h}, \texttt{crypto.h} o \texttt{err.h}, o una biblioteca de enlace distinta de \texttt{libcrypto}.
 
-Se verificó la compilación limpia y las pruebas en pampero (OpenSSL 3.6.3) y en Ubuntu 24.04 bajo WSL2 (OpenSSL 3.0.13, gcc 13.3). \textbf{El entorno exacto que nombra la consigna, Ubuntu 22.04.3, no se probó}: la distribución no estaba instalada en la máquina de desarrollo y se
-renunció a esa verificación; lo que da confianza en su lugar es la lista de identificadores permitidos y las dos pruebas en entornos reales.
+Se verificó la compilación limpia en Pampero (OpenSSL 3.6.3) y en Ubuntu 24.04 bajo WSL2 (OpenSSL 3.0.13, gcc 13.3). En Pampero pasaron todos los casos de \texttt{make test} y \texttt{make test-tools}, y se recuperó el contenido oculto en los cuatro BMP del grupo.
+La versión exacta de Ubuntu 22.04.3 indicada en la consigna sigue sin probarse porque no estaba instalada en la máquina de desarrollo.
 
 Tres problemas concretos de construcción quedaron documentados. Primero, \texttt{CC ?= gcc} en el \texttt{Makefile} no tiene efecto, porque \texttt{make} ya define \texttt{CC} como \texttt{cc}; se corrigió con
 \texttt{ifeq (\$(origin CC),default)}, que conserva los cambios hechos desde la línea de comandos. Segundo, la dependencia de enlace se comprueba con las entradas \texttt{NEEDED} de \texttt{readelf} y no con
