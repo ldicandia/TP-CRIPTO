@@ -32,7 +32,7 @@ ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 PENDIENTE = 'Pendiente: falta descifrar el archivo oculto en secreto1.bmp'
 MINIMOS = {'III': ('q03-procedimiento', 600), 'IV': ('q04-mensajes-anidados', 400),
            'V': ('q05-pelicula', 300), 'VI': ('q06-metodo-desconocido', 400),
-           'I': ('q01-paper', 1500), 'II': ('q02-comparacion', 700), 'VII': ('q07-mejora-lsbi', 600),
+           'I': ('q01-paper', 1000), 'II': ('q02-comparacion', 700), 'VII': ('q07-mejora-lsbi', 600),
            'VIII': ('q08-registro-patrones', 500), 'IX': ('q09-dificultades', 1000), 'X': ('q10-mejoras', 500)}
 MEDIDAS = ['q02-comparacion.tex', 'q07-mejora-lsbi.tex']
 
@@ -49,17 +49,20 @@ def leer(path):
 
 
 def texto_pdf(pdf):
-    try:
-        p = subprocess.Popen(['mutool', 'draw', '-F', 'txt', '-o', '-', pdf],
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, _err = p.communicate()
-    except OSError:
-        falla('no se pudo ejecutar mutool (instalar el paquete mupdf-tools)')
-        return None
-    if p.returncode != 0:
-        falla('mutool no pudo leer %s' % pdf)
-        return None
-    return out.decode('utf-8', 'replace')
+    """Texto del PDF con mutool (mupdf-tools) o, si no está instalado, con pdftotext (poppler-utils)."""
+    comandos = [['mutool', 'draw', '-F', 'txt', '-o', '-', pdf], ['pdftotext', pdf, '-']]
+    for cmd in comandos:
+        try:
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, _err = p.communicate()
+        except OSError:
+            continue
+        if p.returncode != 0:
+            falla('%s no pudo leer %s' % (cmd[0], pdf))
+            return None
+        return out.decode('utf-8', 'replace')
+    falla('no se pudo ejecutar mutool ni pdftotext (instalar mupdf-tools o poppler-utils)')
+    return None
 
 
 def sin_comentarios(tex):

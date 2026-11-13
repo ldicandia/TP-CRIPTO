@@ -5,7 +5,7 @@ cátedra~\cite{catedra2026}, porque su criterio de aceptación es extraer los ar
 propuesta se indica si rompería la compatibilidad byte a byte con ese formato. Cuando lo rompe, la única forma honesta de incorporarla sería como un modo opcional, con su propia
 opción de línea de comandos, dejando intacto el comportamiento por omisión.
 
-La lista está ordenada por la prioridad que le daría el autor: primero lo que corrige debilidades reales de seguridad, después lo que mejora la indetectabilidad, después lo que
+La lista está ordenada por la prioridad que le daría el grupo: primero lo que corrige debilidades reales de seguridad, después lo que mejora la indetectabilidad, después lo que
 amplía el alcance del programa y, al final, lo que mejora el proceso de desarrollo. Las debilidades de las primeras propuestas no son defectos de implementación sino
 consecuencias de decisiones fijadas por la consigna (sal fija, modo ECB disponible, ausencia de código de autenticación), registradas como tales en \texttt{docs/CRYPTO-NOTES.md}.
 
@@ -69,7 +69,7 @@ consecuencias de decisiones fijadas por la consigna (sal fija, modo ECB disponib
   las versiones de OpenSSL de pampero. \emph{Costo:} configuración y mantenimiento del flujo. \emph{Compatibilidad:} no afecta al programa.
 \end{enumerate}
 
-Las tres primeras que haría el autor serían la 1, la 2 y la 7. El cifrado autenticado con sal aleatoria cierra las dos debilidades de seguridad reales del formato actual, la aceptación de contraseñas equivocadas y la
+Las tres primeras que haría el grupo serían la 1, la 2 y la 7. El cifrado autenticado con sal aleatoria cierra las dos debilidades de seguridad reales del formato actual, la aceptación de contraseñas equivocadas y la
 falta de detección de alteraciones, con un costo de unos pocos bytes. El modo de análisis integrado responde a un pedido explícito de la consigna que hoy queda fuera del programa, y no toca el formato. La
 propuesta 5, el emparejamiento LSB, la seguiría de cerca porque es la única que mejora la indetectabilidad sin cambiar cómo se extrae. Las demás dependen de decidir primero cuánta compatibilidad con la cátedra se
 está dispuesto a sacrificar.

@@ -25,7 +25,7 @@ Cuestión~VI): cambiar la extensión a \texttt{.zip} basta para que el descompre
 
 El PDF recuperado de \texttt{avatar.bmp} (con LSBI) es el segundo mensaje anidado: dice <<\texttt{La password es metadata}>> y muestra un candado con una llave (listado~\ref{lst:q4-pdf}). \texttt{sol5.txt} dice que <<la password está en otro archivo>>, y este es el único
 candidato: \texttt{madrid.bmp} sólo guarda el texto de la Cuestión~VI. Dentro del PDF se revisaron la información del documento (autor <<Ana>>, creado con Word el 28 de mayo de 2022), el flujo XMP y la imagen JPEG del candado
-(109$\times$109, sin segmentos EXIF ni datos después del marcador de fin). Como se explica en la Cuestión~V, al generar \texttt{secreto1.bmp} desde un script con saltos de línea CRLF (\texttt{\textbackslash r\textbackslash n}) donde \texttt{-pass metadata} iba al final de la línea, la contraseña efectivamente pasada al programa quedó con un retorno de carro final (\texttt{metadata\textbackslash r}).
+(109$\times$109, sin segmentos EXIF ni datos después del marcador de fin). La contraseña que efectivamente descifra el archivo es \texttt{metadata} seguida de un retorno de carro (\texttt{metadata\textbackslash r}); la Cuestión~V discute la explicación más probable de ese byte de más.
 
 \lstinputlisting[caption={Texto del PDF extraído de \texttt{avatar.bmp}},label={lst:q4-pdf}]{generado/an-avatar-texto.txt}
 

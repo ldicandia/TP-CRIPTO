@@ -25,3 +25,32 @@ no compensa que el delator sea el tamaño del archivo.
 
 Comparado con los tres métodos LSB, el agregado al final cambia la robustez estadística por la visibilidad estructural: LSB1, LSB4 y LSBI esconden el mensaje \emph{dentro} de los datos de la imagen y mantienen el tamaño del archivo, que es lo que
 hace falta para que no llame la atención. Servir de portadora es una propiedad del contenido de los píxeles, no del archivo que los contiene.
+
+\subsection{Comparación con los tres métodos LSB}
+
+El cuadro~\ref{tab:q6-comparacion} resume en qué se diferencia el agregado al final del archivo de los métodos de reemplazo de bits.
+
+\begin{table}[htbp]
+\centering
+\small
+\renewcommand{\arraystretch}{1.1}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+Criterio & Agregado al final del archivo & LSB1, LSB4 y LSBI \\
+\midrule
+Dónde va el mensaje & Después del último píxel; los píxeles no cambian & Dentro de los bytes de color; el archivo mide lo mismo que el original \\
+Capacidad & Ilimitada: el archivo crece lo que haga falta & Acotada por la imagen (\dato{an-madrid-cap1} bytes con LSB1 en \texttt{madrid.bmp}) \\
+Cómo se detecta & Comparando el tamaño del archivo con el que declara la cabecera, o mirando el final con un editor hexadecimal & Con estadística sobre los bits bajos ($\chi^2$ de pares de valores, análisis RS~\cite{westfeld2000,fridrich2001}); el tamaño no delata nada \\
+Qué lo destruye & Cualquier programa que vuelva a guardar la imagen, aun sin pérdida & Cualquier recompresión con pérdida o cambio de tamaño; volver a guardar como BMP sin tocar los píxeles lo conserva \\
+Complejidad & Ninguna: basta concatenar dos archivos & Un programa que recorra los píxeles; LSBI además cuenta por patrón y guarda banderas \\
+\bottomrule
+\end{tabularx}
+\caption{El agregado al final del archivo frente a los métodos de reemplazo de bits}
+\label{tab:q6-comparacion}
+\end{table}
+
+La cátedra lo usó con criterio: el texto de \texttt{madrid.bmp} no es el secreto sino una instrucción para seguir la cadena de pistas, y para eso
+alcanza un método que cualquiera encuentre en un minuto. Como método de ocultamiento no sirve, pero como ejercicio muestra lo que distingue un
+canal esteganográfico de un simple escondite: no alcanza con que el mensaje no se vea en pantalla; hace falta que el archivo que lo lleva sea
+indistinguible, en tamaño, estructura y estadística, de uno que no lo lleva. En ese sentido \texttt{madrid.bmp} es el único de los cuatro
+archivos que delata su secreto sin necesidad de abrirlo con un programa de esteganografía.

@@ -15,10 +15,14 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{array}
-\usepackage{multirow}
 \usepackage{graphicx}
 \usepackage{subcaption}
 \usepackage{float}
+% Flotantes: permitir páginas con mucha tabla y poco texto para evitar medias páginas en blanco.
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.9}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.8}
 \usepackage{xcolor}
 \usepackage{amsmath}
 \usepackage{listings}
@@ -118,25 +122,29 @@ Esteganografiar un mismo archivo en un .bmp con cada uno de los tres algoritmos,
 \begin{enunciado}
 Explicar detalladamente el procedimiento realizado para descubrir qué se había ocultado en cada archivo y de qué modo. Indicar qué se encontró en cada archivo.
 \end{enunciado}
-\respuesta{q03-procedimiento}
+
+\respuesta{q03-procedimiento}
 
 \section{Cuestión IV: Mensajes ocultos dentro de mensajes ocultos}\label{sec:cuestion-iv}
 \begin{enunciado}
 Algunos mensajes ocultos tenían, a su vez, otros mensajes ocultos. Indica cuál era ese mensaje y cómo se había ocultado.
 \end{enunciado}
-\respuesta{q04-mensajes-anidados}
+
+\respuesta{q04-mensajes-anidados}
 
 \section{Cuestión V: El fragmento de película}\label{sec:cuestion-v}
 \begin{enunciado}
 Uno de los archivos ocultos era una porción de un video de una película, donde se ve ejemplificado una manera de ocultar información ¿qué se ocultaba y sobre qué portador?
 \end{enunciado}
-\respuesta{q05-pelicula}
+
+\respuesta{q05-pelicula}
 
 \section{Cuestión VI: El método de ocultamiento desconocido}\label{sec:cuestion-vi}
 \begin{enunciado}
 ¿De qué se trató el método de esteganografiado que no era LSB1 ni LSB4 ni LSBI? ¿Es un método eficaz? ¿Por qué?
 \end{enunciado}
-\respuesta{q06-metodo-desconocido}
+
+\respuesta{q06-metodo-desconocido}
 
 \section{Cuestión VII: Por qué LSBI mejora a LSB}\label{sec:cuestion-vii}
 \begin{enunciado}

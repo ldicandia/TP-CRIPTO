@@ -113,6 +113,7 @@ def analizar(dirsal, base, d):
         if c[:4] == b'%PDF':
             r['tipo'] = 'PDF'
             r['texto'] = texto_pdf(c)
+            r['pdf'] = c
         elif c[:8] == b'\x89PNG\r\n\x1a\n':
             r['tipo'] = 'PNG'
             ch, fin = chunks_png(c)
@@ -233,6 +234,9 @@ def escribir(res):
         raise Error('avatar.bmp ya no extrae un PDF con LSBI')
     d('an-avatar-pdf-bytes', tex_int(r['bytes']))
     d('an-avatar-pdf-texto', r['texto'])
+    os.makedirs(GEN, exist_ok=True)
+    with open(os.path.join(GEN, 'an-avatar-oculto.pdf'), 'wb') as f:
+        f.write(r['pdf'])
     # montevideo -> LSB1 -> PNG con ZIP
     st, r = mon['metodos']['LSB1']
     if st != 'ok' or r.get('tipo') != 'PNG' or not r.get('zip'):
@@ -273,7 +277,7 @@ def escribir(res):
     for clave, nombre in (('an-madrid-texto', 'an-madrid-texto.txt'), ('an-mon-zip-texto', 'an-sol5.txt'),
                           ('an-avatar-pdf-texto', 'an-avatar-texto.txt')):
         with open(os.path.join(GEN, nombre), 'w', encoding='utf-8', newline='\n') as f:
-            f.write(D[clave].rstrip('\n') + '\n')
+            f.write(D[clave].replace('\r\n', '\n').rstrip('\n') + '\n')
 
     def breve(info):
         st, v = info
