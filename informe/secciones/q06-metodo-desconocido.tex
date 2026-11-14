@@ -1,56 +1,16 @@
 % Cuestión VI. El método que no era LSB1, LSB4 ni LSBI: datos agregados al final de madrid.bmp.
-% Cifras de generado/datos-analisis.tex.
 
-\textbf{El método.} Era el más simple de los posibles: agregar el mensaje \emph{al final del archivo}, después del último píxel. \texttt{madrid.bmp} tiene \dato{an-madrid-bytes} bytes; la cabecera de 54 bytes más los
-\dato{an-madrid-ancho}$\times$\dato{an-madrid-alto} píxeles de 3 bytes (sin relleno de fila, porque $\dato{an-madrid-ancho}\cdot 3$ es múltiplo de 4) suman \dato{an-madrid-pixeles-reales} bytes de píxeles, y quedan \dato{an-madrid-agregados}
-bytes que no son imagen. Esos bytes son texto (listado~\ref{lst:q6-madrid}):
+\textbf{El método.} En \texttt{madrid.bmp} el mensaje se agregó \emph{al final del archivo}, después del último píxel. El archivo mide
+\dato{an-madrid-bytes} bytes, pero la cabecera más los píxeles ocupan \dato{an-madrid-bfsize}: sobran \dato{an-madrid-agregados} bytes de texto en claro
+(listado~\ref{lst:q6-madrid}). Los píxeles no ocultan nada.
 
-\lstinputlisting[caption={Los bytes agregados al final de \texttt{madrid.bmp}},label={lst:q6-madrid}]{generado/an-madrid-texto.txt}
+\lstinputlisting[caption={Bytes agregados al final de \texttt{madrid.bmp}},label={lst:q6-madrid}]{generado/an-madrid-texto.txt}
 
-El mensaje no es la clave de nada: es la instrucción para el paso siguiente de la cadena (convertir el PNG de \texttt{montevideo.bmp} en ZIP, Cuestión~IV). Los píxeles en cambio no esconden nada. En la comprobación de la Cuestión~III, ni el campo de tamaño de LSB1,
-LSB4 y LSBI, ni otras lecturas razonables de los bits bajos (otros canales, otro orden de filas, dos a ocho bits por canal) dan un encabezado coherente.
-
-\textbf{Cómo se encuentra.} La diferencia entre el tamaño real del archivo y el que sale de la cabecera es inmediata: \texttt{tools/sigsearch.py} la informa como datos agregados (\emph{appended}), y un editor hexadecimal muestra las últimas
-líneas como texto legible. La cabecera de \texttt{madrid.bmp} tampoco es consistente: el campo del tamaño de archivo vale \dato{an-madrid-bfsize} (54 más los píxeles, sin contar el texto) y el del tamaño de la imagen vale
-\dato{an-madrid-sizeimg}, que no es $\dato{an-madrid-ancho}\cdot\dato{an-madrid-alto}\cdot 3 = \dato{an-madrid-pixeles-reales}$ sino el tamaño real del archivo menos 54. Quien agregó el texto actualizó un campo de la cabecera y no el otro.
-
-\textbf{¿Es eficaz?} No, por varias razones:
+\textbf{¿Es eficaz?} No:
 \begin{itemize}
-\item \emph{Se detecta con una resta.} Comparar el tamaño del archivo con lo que dice su cabecera, o mirar el final del archivo con un editor hexadecimal o con \texttt{strings}, basta. Un mensaje en claro es legible a simple vista.
-\item \emph{No sobrevive a ningún procesamiento.} Abrir la imagen y volver a guardarla en un programa de edición, convertirla de formato o recomprimirla descarta todo lo que no sea píxel; también lo pierde cualquier programa que copie sólo lo que declara la cabecera.
-\item \emph{Sin ninguna protección.} Cualquiera que encuentre los bytes los lee; no hay clave, no hay cifrado y no hay disimulo.
-\item \emph{Sólo tiene una ventaja: no toca los píxeles.} La imagen se ve y se analiza estadísticamente exactamente igual que la original, de modo que ningún ataque por histograma o $\chi^2$ sobre los bits bajos~\cite{westfeld2000,fridrich2001} puede detectarlo, y la capacidad no depende de la portadora. Pero esa ventaja
-no compensa que el delator sea el tamaño del archivo.
+\item Se detecta comparando el tamaño del archivo con el de la cabecera, o mirando el final con \texttt{strings} o un editor hexadecimal.
+\item No hay ninguna protección: el texto está en claro.
+\item Se pierde al volver a guardar o convertir la imagen, porque los programas sólo conservan los píxeles.
 \end{itemize}
-
-Comparado con los tres métodos LSB, el agregado al final cambia la robustez estadística por la visibilidad estructural: LSB1, LSB4 y LSBI esconden el mensaje \emph{dentro} de los datos de la imagen y mantienen el tamaño del archivo, que es lo que
-hace falta para que no llame la atención. Servir de portadora es una propiedad del contenido de los píxeles, no del archivo que los contiene.
-
-\subsection{Comparación con los tres métodos LSB}
-
-El cuadro~\ref{tab:q6-comparacion} resume en qué se diferencia el agregado al final del archivo de los métodos de reemplazo de bits.
-
-\begin{table}[htbp]
-\centering
-\small
-\renewcommand{\arraystretch}{1.1}
-\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
-\toprule
-Criterio & Agregado al final del archivo & LSB1, LSB4 y LSBI \\
-\midrule
-Dónde va el mensaje & Después del último píxel; los píxeles no cambian & Dentro de los bytes de color; el archivo mide lo mismo que el original \\
-Capacidad & Ilimitada: el archivo crece lo que haga falta & Acotada por la imagen (\dato{an-madrid-cap1} bytes con LSB1 en \texttt{madrid.bmp}) \\
-Cómo se detecta & Comparando el tamaño del archivo con el que declara la cabecera, o mirando el final con un editor hexadecimal & Con estadística sobre los bits bajos ($\chi^2$ de pares de valores, análisis RS~\cite{westfeld2000,fridrich2001}); el tamaño no delata nada \\
-Qué lo destruye & Cualquier programa que vuelva a guardar la imagen, aun sin pérdida & Cualquier recompresión con pérdida o cambio de tamaño; volver a guardar como BMP sin tocar los píxeles lo conserva \\
-Complejidad & Ninguna: basta concatenar dos archivos & Un programa que recorra los píxeles; LSBI además cuenta por patrón y guarda banderas \\
-\bottomrule
-\end{tabularx}
-\caption{El agregado al final del archivo frente a los métodos de reemplazo de bits}
-\label{tab:q6-comparacion}
-\end{table}
-
-La cátedra lo usó con criterio: el texto de \texttt{madrid.bmp} no es el secreto sino una instrucción para seguir la cadena de pistas, y para eso
-alcanza un método que cualquiera encuentre en un minuto. Como método de ocultamiento no sirve, pero como ejercicio muestra lo que distingue un
-canal esteganográfico de un simple escondite: no alcanza con que el mensaje no se vea en pantalla; hace falta que el archivo que lo lleva sea
-indistinguible, en tamaño, estructura y estadística, de uno que no lo lleva. En ese sentido \texttt{madrid.bmp} es el único de los cuatro
-archivos que delata su secreto sin necesidad de abrirlo con un programa de esteganografía.
+Su única ventaja es que no altera los píxeles, por lo que no lo detectan los análisis estadísticos de los bits bajos y su capacidad es ilimitada. Sirve, como
+lo usó la cátedra, para dejar una pista, no para ocultar un secreto.

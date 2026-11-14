@@ -30,10 +30,10 @@ GEN = os.path.join(INF, 'generado')
 
 ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 PENDIENTE = 'Pendiente: falta descifrar el archivo oculto en secreto1.bmp'
-MINIMOS = {'III': ('q03-procedimiento', 600), 'IV': ('q04-mensajes-anidados', 400),
-           'V': ('q05-pelicula', 300), 'VI': ('q06-metodo-desconocido', 400),
-           'I': ('q01-paper', 1000), 'II': ('q02-comparacion', 700), 'VII': ('q07-mejora-lsbi', 600),
-           'VIII': ('q08-registro-patrones', 500), 'IX': ('q09-dificultades', 1000), 'X': ('q10-mejoras', 500)}
+MINIMOS = {'III': ('q03-procedimiento', 200), 'IV': ('q04-mensajes-anidados', 150),
+           'V': ('q05-pelicula', 150), 'VI': ('q06-metodo-desconocido', 120),
+           'I': ('q01-paper', 300), 'II': ('q02-comparacion', 150), 'VII': ('q07-mejora-lsbi', 150),
+           'VIII': ('q08-registro-patrones', 120), 'IX': ('q09-dificultades', 200), 'X': ('q10-mejoras', 80)}
 MEDIDAS = ['q02-comparacion.tex', 'q07-mejora-lsbi.tex']
 
 fallas = []

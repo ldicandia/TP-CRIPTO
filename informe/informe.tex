@@ -85,25 +85,9 @@
 % ---------------------------------------------------------------- introducción
 \section{Introducción}\label{sec:introduccion}
 
-\texttt{stegobmp} es un programa de línea de comandos escrito en C, con OpenSSL, que oculta cualquier
-archivo dentro de una imagen BMP de 24 bits sin compresión (versión 3) y lo recupera después. Implementa
-los tres métodos que pide la cátedra~\cite{catedra2026}: LSB1, LSB4 y LSBI, este último la variante con
-inversión de bits de Majeed y Sulaiman~\cite{majeed2015}. Opcionalmente, antes de ocultar, cifra el
-mensaje con AES (128, 192 o 256 bits) o con 3DES, en los modos ECB, CFB, OFB o CBC, derivando la clave
-y el vector de inicialización con PBKDF2 a partir de una contraseña.
-
-La esteganografía oculta la existencia misma del mensaje, a diferencia de la criptografía, que oculta su contenido~\cite{johnson1998,gomezcardenas}; por eso el programa permite combinar ambas.
-
-\textbf{Organización.} El informe responde en orden las cuestiones de la sección 7 del enunciado, una sección por cuestión, y cada respuesta empieza
-transcribiendo la pregunta. Las Cuestiones I y II analizan el documento de Majeed y Sulaiman y comparan los tres métodos; las Cuestiones VII y VIII explican y discuten la mejora que propone LSBI; la IX cuenta las
-dificultades de la implementación y la X propone mejoras. Las Cuestiones III a VI cuentan el estegoanálisis de los cuatro archivos que la cátedra entregó al grupo (\texttt{avatar.bmp},
-\texttt{madrid.bmp}, \texttt{montevideo.bmp} y \texttt{secreto1.bmp}).
-
-\textbf{Convenciones.} Las páginas citadas del documento de Majeed y Sulaiman son las de la revista (342 a 348). Todas las cifras medidas que se
-citan en las Cuestiones II, III, IV, V, VI y VII (capacidades, bytes modificados, MSE, PSNR, estadísticos $\chi^2$, conteos de inversión) se
-regeneran con \texttt{make report} a partir del propio programa y de las herramientas de análisis del
-repositorio, y se contrastaron con los archivos de \texttt{Ejemplo/} de la cátedra; ninguna se escribió a mano. Las rutas como \texttt{docs/LSBI-NOTES.md} remiten a las notas del proyecto.
-Para regenerar este informe basta ejecutar \texttt{make report} en la raíz del repositorio.
+\texttt{stegobmp} es un programa en C con OpenSSL que oculta un archivo en un BMP de 24 bits sin compresión con LSB1, LSB4 o LSBI~\cite{majeed2015},
+opcionalmente cifrado con AES o 3DES~\cite{catedra2026}. Este informe responde las cuestiones del punto 7 de la consigna, incluido el estegoanálisis de
+los cuatro archivos entregados al grupo. Las cifras medidas se regeneran con \texttt{make report}.
 
 % ---------------------------------------------------------------- cuestiones
 \section{Cuestión I: Análisis del documento de Majeed y Sulaiman}\label{sec:cuestion-i}
@@ -177,33 +161,15 @@ En la implementación se optó por guardar los patrones invertidos antes del men
 
 \bibitem{catedra2026} Cátedra de Criptografía y Seguridad, ITBA, ``Trabajo Práctico de Implementación: Esteganografía'', 2026.
 
-\bibitem{johnson1998} N. F. Johnson and S. Jajodia, ``Exploring steganography: Seeing the unseen'', \emph{IEEE Computer}, vol. 31, no. 2, pp. 26--34, 1998.
-
 \bibitem{westfeld2000} A. Westfeld and A. Pfitzmann, ``Attacks on steganographic systems'', \emph{Information Hiding 1999}, LNCS 1768, pp. 61--76, Springer, 2000.
 
-\bibitem{fridrich2001} J. Fridrich, M. Goljan and R. Du, ``Reliable detection of LSB steganography in color and grayscale images'', \emph{Proc. ACM Workshop on Multimedia and Security}, pp. 27--30, 2001.
-
-\bibitem{fridrich2009} J. Fridrich, \emph{Steganography in Digital Media: Principles, Algorithms, and Applications}, Cambridge University Press, 2009.
-
 \bibitem{sharp2001} T. Sharp, ``An implementation of key-based digital signal steganography'', \emph{Information Hiding 2001}, LNCS 2137, pp. 13--26, Springer, 2001.
-
-\bibitem{kerckhoffs1883} A. Kerckhoffs, ``La cryptographie militaire'', \emph{Journal des sciences militaires}, vol. IX, pp. 5--38, 1883.
-
-\bibitem{rfc8018} K. Moriarty, B. Kaliski and A. Rusch, ``PKCS \#5: Password-Based Cryptography Specification Version 2.1'', RFC 8018, 2017.
-
-\bibitem{nist80038a} M. Dworkin, ``Recommendation for Block Cipher Modes of Operation: Methods and Techniques'', NIST SP 800-38A, 2001.
 
 \bibitem{nist80038d} M. Dworkin, ``Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC'', NIST SP 800-38D, 2007.
 
 \bibitem{nist800132} M. Sönmez Turan, E. Barker, W. Burr and L. Chen, ``Recommendation for Password-Based Key Derivation, Part 1: Storage Applications'', NIST SP 800-132, 2010.
 
-\bibitem{rfc9106} A. Biryukov, D. Dinu, D. Khovratovich and S. Josefsson, ``Argon2 Memory-Hard Function for Password Hashing and Proof-of-Work Applications'', RFC 9106, 2021.
-
 \bibitem{microsoftbmp} Microsoft, ``BITMAPFILEHEADER structure (wingdi.h)'', documentación de la API Win32, enlace indicado en el enunciado del TP.
-
-\bibitem{gomezcardenas} R. Gómez Cárdenas, ``Esteganografía'', \url{http://www.cryptomex.org/SlidesCripto/Estegano.pdf}.
-
-\bibitem{opensslevp} OpenSSL Project, ``EVP\_EncryptInit'' (página de manual), \url{https://www.openssl.org/docs/}.
 
 \end{thebibliography}
 
